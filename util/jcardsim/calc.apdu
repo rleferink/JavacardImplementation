@@ -1,0 +1,39 @@
+//apdu file is a file which defines which commands are send to the emulated card. Currently, this is a static file. To interactively send APDU's, see https://jcardsim.org/docs/quick-start-guide-simulator-api
+
+//initalization APDU, not interesting
+// CREATE APPLET CMD
+0x80 0xb8 0x00 0x00 0x10 0x9 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x8 0x09 0x05 0x00 0x00 0x02 0xF 0xF 0x7f;
+// SELECT APPLET CMD
+0x00 0xa4 0x00 0x00 0x09 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x8 0x09 0x2;
+
+//example apdu's for calculator
+
+//comand to send ascii '4'
+0x00 0x34 0x00 0x00 0x00 0x0d;
+//comand to send 'x'
+0x00 0x78 0x00 0x00 0x00 0x0d;
+//comand to send '2'
+0x00 0x32 0x00 0x00 0x00 0x0d;
+//comand to send '='
+0x00 0x3d 0x00 0x00 0x00 0x0d;
+
+//the output should be the following:
+
+//First two lines are initalization
+//CLA: 80, INS: b8, P1: 00, P2: 00, Lc: 10, 09, 01, 02, 03, 04, 05, 06, 07, 08, 09, 05, 00, 00, 02, 0f, 0f, Le: 09, 01, 02, 03, 04, 05, 06, 07, 08, 09, SW1: 90, SW2: 00
+//CLA: 00, INS: a4, P1: 00, P2: 00, Lc: 09, 01, 02, 03, 04, 05, 06, 07, 08, 09, Le: 00, SW1: 90, SW2: 00
+
+
+//CLA: 00, INS: 34, P1: 00, P2: 00, Lc: 00, Le: 05, 00, 00, 00, 00, 04, SW1: 90, SW2: 00
+//								    ^this is the current displayed value on the calculator screen after entering '4'
+
+//CLA: 00, INS: 78, P1: 00, P2: 00, Lc: 00, Le: 05, 00, 00, 00, 00, 04, SW1: 90, SW2: 00
+//								    ^still 4 after entering 'x'
+
+//CLA: 00, INS: 32, P1: 00, P2: 00, Lc: 00, Le: 05, 00, 00, 00, 00, 02, SW1: 90, SW2: 00
+//								    ^becomes 2 after entering '2'
+
+//CLA: 00, INS: 3d, P1: 00, P2: 00, Lc: 00, Le: 05, 00, 00, 00, 00, 08, SW1: 90, SW2: 00
+//								    ^result is 8 after entering '=', 4x2=8
+
+

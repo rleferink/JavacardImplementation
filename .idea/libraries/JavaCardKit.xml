@@ -1,0 +1,20 @@
+<component name="libraryTable">
+  <library name="JavaCardKit">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/scriptgen.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/offcardverifier.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/jcwde.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/jcrmiclientframework.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/jcclientsamples.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/javacardframework.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/installer.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/converter.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/capdump.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/api.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/apdutool.jar!/" />
+      <root url="jar://$PROJECT_DIR$/util/java_card_kit-2_2_1/lib/apduio.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

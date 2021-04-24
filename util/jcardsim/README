@@ -1,0 +1,8 @@
+Explanation of jcardsim
+
+jcardsim is an emulator which allows you to run javacard applications without the real hardware. It works by running the .class files, and doesn't work with the resulting .cap files. JavaCards interact with the terminal through so called APDU's. These APDU's are a single message from the terminal to the card. Jcardsim allows you to write APDU's to the application and read its response. The default example allows you to statically define the APDU's that are to be sent, but it is possible to interactively define which apdu's are sent.
+
+jcardsim works based on a config file, an example is provided in the file 'jcardsim.cfg'. This file loads the calculator app. The provided APDU file (calc.apdu) provides the APDU's which make the calculator calculate 4x2=8. To view the structure of APDU's and the example file, view calc.apdu.
+
+To run this example, type in the root directory:
+java   -classpath util/jcardsim/jcardsim-2.2.1-all.jar:AssignmentApplet/bin com.licel.jcardsim.utils.APDUScriptTool util/jcardsim/jcardsim.cfg util/jcardsim/calc.apdu
