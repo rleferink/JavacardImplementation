@@ -35,9 +35,9 @@ import com.licel.jcardsim.smartcardio.CardSimulator;
  * POS terminal for the Loyalty Applet.
  **
  * @author Andrius Kuprys
- * @author
- * @author
- * @author
+ * @author Roland Leferink
+ * @author Marc van de Werfhorst
+ * @author Romy Stähli
  *
  */
 public class PosTerminal extends JPanel implements ActionListener {
