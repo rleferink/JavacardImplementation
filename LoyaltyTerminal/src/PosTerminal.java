@@ -98,7 +98,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         key("*");
         key("0");
         key("#");
-        key("OK");
+        key("V");
         add(keypad, BorderLayout.CENTER);
         parent.addWindowListener(new CloseEventListener());
     }
@@ -174,7 +174,7 @@ public class PosTerminal extends JPanel implements ActionListener {
             AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
             // @Andrius: Temporally call with null, to run the project
             // simulator.installApplet(calcAppletAID, CalcApplet.class);
-            simulator.installApplet(calcAppletAID, null);
+            simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
 
             // Insert Card into "My terminal 1"
             simulator.assignToTerminal(terminal1);

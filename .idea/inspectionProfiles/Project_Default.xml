@@ -1,0 +1,148 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="Annotator" enabled="true" level="ERROR" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="CheckEmptyScriptTag" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="CheckImageSize" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="CheckValidXmlInScriptTagBody" enabled="true" level="ERROR" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="DefaultFileTemplate" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true">
+        <option name="CHECK_FILE_HEADER" value="true" />
+        <option name="CHECK_TRY_CATCH_SECTION" value="true" />
+        <option name="CHECK_METHOD_BODY" value="true" />
+      </scope>
+      <option name="CHECK_FILE_HEADER" value="true" />
+      <option name="CHECK_TRY_CATCH_SECTION" value="true" />
+      <option name="CHECK_METHOD_BODY" value="true" />
+    </inspection_tool>
+    <inspection_tool class="DuplicatedCode" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WEAK WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlDeprecatedAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlDeprecatedTag" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlExtraClosingTag" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlFormInputWithoutLabel" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlMissingClosingTag" enabled="true" level="INFORMATION" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="INFORMATION" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlNonExistentInternetResource" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlPresentationalElement" enabled="true" level="INFORMATION" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="INFORMATION" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlRequiredAltAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlRequiredLangAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlRequiredSummaryAttribute" enabled="true" level="INFORMATION" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="INFORMATION" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlRequiredTitleAttribute" enabled="true" level="INFORMATION" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="INFORMATION" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlRequiredTitleElement" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlUnknownAnchorTarget" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlUnknownAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true">
+        <option name="myValues">
+          <value>
+            <list size="0" />
+          </value>
+        </option>
+        <option name="myCustomValuesEnabled" value="true" />
+      </scope>
+      <option name="myValues">
+        <value>
+          <list size="0" />
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlUnknownBooleanAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlUnknownTag" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true">
+        <option name="myValues">
+          <value>
+            <list size="6">
+              <item index="0" class="java.lang.String" itemvalue="nobr" />
+              <item index="1" class="java.lang.String" itemvalue="noembed" />
+              <item index="2" class="java.lang.String" itemvalue="comment" />
+              <item index="3" class="java.lang.String" itemvalue="noscript" />
+              <item index="4" class="java.lang.String" itemvalue="embed" />
+              <item index="5" class="java.lang.String" itemvalue="script" />
+            </list>
+          </value>
+        </option>
+        <option name="myCustomValuesEnabled" value="true" />
+      </scope>
+      <option name="myValues">
+        <value>
+          <list size="6">
+            <item index="0" class="java.lang.String" itemvalue="nobr" />
+            <item index="1" class="java.lang.String" itemvalue="noembed" />
+            <item index="2" class="java.lang.String" itemvalue="comment" />
+            <item index="3" class="java.lang.String" itemvalue="noscript" />
+            <item index="4" class="java.lang.String" itemvalue="embed" />
+            <item index="5" class="java.lang.String" itemvalue="script" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlUnknownTarget" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="InconsistentLineSeparators" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="InjectedReferences" enabled="true" level="ERROR" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="LongLine" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="ProblematicWhitespace" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="RedundantSuppression" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="RequiredAttributes" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true">
+        <option name="myAdditionalRequiredHtmlAttributes" value="" />
+      </scope>
+      <option name="myAdditionalRequiredHtmlAttributes" value="" />
+    </inspection_tool>
+    <inspection_tool class="SyntaxError" enabled="true" level="ERROR" enabled_by_default="true">
+      <scope name="LoyaltyApplet" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="TodoComment" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="LoyaltyApplet" level="WARNING" enabled="true" />
+    </inspection_tool>
+  </profile>
+</component>

@@ -10,5 +10,6 @@
     <orderEntry type="library" name="gp" level="project" />
     <orderEntry type="library" name="jcardsim" level="project" />
     <orderEntry type="library" name="JavaCardKit" level="project" />
+    <orderEntry type="module" module-name="LoyaltyApplet" />
   </component>
 </module>
