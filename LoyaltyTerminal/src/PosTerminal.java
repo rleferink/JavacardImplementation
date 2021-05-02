@@ -227,6 +227,36 @@ public class PosTerminal extends JPanel implements ActionListener {
         return PREFERRED_SIZE;
     }
 
+    void spendingPoints() {
+        //step 3: enter amount of points to spend, now set to 100
+        int points = 100;
+
+        //step 8: c -> t: nonce_1
+        //ResponseAPDU resp = applet.transmit(SELECT_APDU);
+
+        //step 9: t -> c: nonce_1 | online/offline | nonce_2
+
+        //step 11: c -> t: nonce_2
+
+        //step 12: t -> d: any revoked transaction?
+
+        //step 13: d -> t: yes/no
+
+        //step 15: t -> c: balance at least n?
+
+        //step 16: c -> t: yes/no | nonce_3
+
+        //step 17: if yes: t -> c: decrease with n points
+
+        //step 19: c -> t: balance decreased
+
+        //step 20: t -> u: card can be removed
+
+        //step 24: t -> d: decrease with n points | timestamp
+
+        //step 26: d -> t: balance is decreased
+    }
+
     public static void main(String[] args) {
         JFrame frame = new JFrame(TITLE);
         Container c = frame.getContentPane();

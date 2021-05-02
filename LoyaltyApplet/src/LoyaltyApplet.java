@@ -1,6 +1,8 @@
 import javacard.framework.*;
 import jdk.nashorn.internal.objects.annotations.Constructor;
 
+import javax.smartcardio.ResponseAPDU;
+
 public class LoyaltyApplet extends Applet implements ISO7816 {
     private static final byte X = 0;
     private static final byte Y = 1;
@@ -64,7 +66,8 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case '9':
                 digit((byte) 9);
                 break;
-            case 'S': System.out.println("Spending points"); break;
+            case 'S': //apdu.setOutgoingAndSend((short) s, (short) 1);
+                break;
             case '<':
             case 'X':
             case 'V':
@@ -88,7 +91,8 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     }
 
     void digit(byte d) {
-        System.out.println(d + " digit pressed");
+        xy[X] = (short) ((short) (xy[X] * 10) + (short) (d & 0x00FF));
+        System.out.println(d + " digit pressed: " + xy[X]);
     }
 
     void operator(byte op) throws ISOException {
