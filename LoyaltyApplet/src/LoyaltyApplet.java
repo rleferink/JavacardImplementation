@@ -64,6 +64,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case '9':
                 digit((byte) 9);
                 break;
+            case 'S': System.out.println("Spending points"); break;
             case '<':
             case 'X':
             case 'V':

@@ -47,7 +47,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     private static final long serialVersionUID = 1L;
     static final String TITLE = "Loyalty Applet";
     static final Font FONT = new Font("Monospaced", Font.BOLD, 24);
-    static final Dimension PREFERRED_SIZE = new Dimension(300, 300);
+    static final Dimension PREFERRED_SIZE = new Dimension(400, 300);
 
     static final int DISPLAY_WIDTH = 20;
     static final String MSG_ERROR = "    -- error --     ";
@@ -94,7 +94,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         key("7");
         key("8");
         key("9");
-        key(null);
+        key("Spend");
         key("*");
         key("0");
         key("#");
