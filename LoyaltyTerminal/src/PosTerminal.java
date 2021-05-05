@@ -93,9 +93,9 @@ public class PosTerminal extends JPanel implements ActionListener {
         key("9", Color.black);
         key("OK", Color.green);
         checkBox("View", false);
-        key("*", Color.black);
+        key(null, null);
         key("0", Color.black);
-        key("#", Color.black);
+        key(null, null);
         key(null, null);
         key(null, null);
         add(keypad, BorderLayout.CENTER);
@@ -160,26 +160,13 @@ public class PosTerminal extends JPanel implements ActionListener {
         if (sw != 0x9000 || data.length < 5) {
             setText(MSG_ERROR);
         } else {
-            if (appMode == AppUtil.AppMode.ADD){
+            if (data[0] == AppUtil.AppMode.ADD.ordinal()){
                 setText(String.format("ADD  : %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
-            } else if (appMode == AppUtil.AppMode.SPEND){
+            } else if (data[0] == AppUtil.AppMode.SPEND.ordinal()){
                 setText(String.format("SPEND: %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
             } else {
                 setText(String.format("VIEW : %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
             }
-            setMemory(data[0] == 0x01);
-        }
-    }
-
-    void setMemory(boolean b) {
-        String txt = getText();
-        int l = txt.length();
-        if (l < DISPLAY_WIDTH) {
-            for (int i = 0; i < (DISPLAY_WIDTH - l); i++) {
-                txt = " " + txt;
-            }
-            txt = (b ? "M" : " ") + txt;
-            setText(txt);
         }
     }
 
@@ -221,7 +208,6 @@ public class PosTerminal extends JPanel implements ActionListener {
                 if (resp.getSW() != 0x9000) {
                     throw new Exception("Select failed");
                 }
-                setText(sendKey((byte) '='));
                 setEnabled(true);
             } catch (Exception e) {
                 System.err.println("Card status problem!");

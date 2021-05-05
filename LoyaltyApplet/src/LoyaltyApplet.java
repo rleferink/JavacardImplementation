@@ -94,7 +94,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         if (le < 5) {
             ISOException.throwIt((short) (SW_WRONG_LENGTH | 5));
         }
-        buffer[0] = (m == 0) ? (byte) 0x00 : (byte) 0x01;
+        buffer[0] = (byte) currentMode.ordinal();
         Util.setShort(buffer, (short) 1, (short) 0);
         Util.setShort(buffer, (short) 3, enteredValue[X]);
         apdu.setOutgoingLength((short) 5);
@@ -121,7 +121,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
     }
 
-    // TODO: implement based on "currentMode"
+    // TODO: complete implementation based on "currentMode"
     void executeOperation(){
         switch (currentMode){
             case ADD:
