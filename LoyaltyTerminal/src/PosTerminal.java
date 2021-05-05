@@ -8,10 +8,8 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
+import java.util.Enumeration;
 import java.util.List;
 
 import javax.smartcardio.Card;
@@ -22,11 +20,7 @@ import javax.smartcardio.CardTerminals;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import javax.smartcardio.TerminalFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
+import javax.swing.*;
 
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.smartcardio.CardSimulator;
@@ -43,6 +37,7 @@ import com.licel.jcardsim.smartcardio.CardSimulator;
 public class PosTerminal extends JPanel implements ActionListener {
 
     //private JavaxSmartCardInterface simulatorInterface; // SIM
+    private AppUtil.AppMode appMode = AppUtil.AppMode.ADD;
 
     private static final long serialVersionUID = 1L;
     static final String TITLE = "Loyalty Applet";
@@ -82,35 +77,63 @@ public class PosTerminal extends JPanel implements ActionListener {
         display.setBackground(Color.darkGray);
         display.setForeground(Color.green);
         add(display, BorderLayout.NORTH);
-        keypad = new JPanel(new GridLayout(4, 4));
-        key("1");
-        key("2");
-        key("3");
-        key("X");
-        key("4");
-        key("5");
-        key("6");
-        key("<");
-        key("7");
-        key("8");
-        key("9");
-        key("Spend");
-        key("*");
-        key("0");
-        key("#");
-        key("V");
+        keypad = new JPanel(new GridLayout(4, 5));
+        key("1", Color.black);
+        key("2", Color.black);
+        key("3", Color.black);
+        key("X", Color.red);
+        checkBox("Add", true);
+        key("4", Color.black);
+        key("5", Color.black);
+        key("6", Color.black);
+        key("<", Color.orange);
+        checkBox("Spend", false);
+        key("7", Color.black);
+        key("8", Color.black);
+        key("9", Color.black);
+        key("OK", Color.green);
+        checkBox("View", false);
+        key("*", Color.black);
+        key("0", Color.black);
+        key("#", Color.black);
+        key(null, null);
+        key(null, null);
         add(keypad, BorderLayout.CENTER);
         parent.addWindowListener(new CloseEventListener());
     }
 
-    void key(String txt) {
+    void key(String txt, Color c) {
         if (txt == null) {
             keypad.add(new JLabel());
         } else {
             JButton button = new JButton(txt);
+            button.setOpaque(true);
+            button.setForeground(c);
             button.addActionListener(this);
             keypad.add(button);
         }
+    }
+
+    ButtonGroup rbModeGroup = new ButtonGroup();
+
+    void checkBox(String txt, boolean enable) {
+        JRadioButton rb = new JRadioButton(txt, enable);
+        rbModeGroup.add(rb);
+        keypad.add(rb);
+        rb.addActionListener(e -> {
+            switch (e.getActionCommand()){
+                case "Add":
+                    appMode = AppUtil.AppMode.ADD;
+                    break;
+                case "Spend":
+                    appMode = AppUtil.AppMode.SPEND;
+                    break;
+                case "View":
+                    appMode = AppUtil.AppMode.VIEW;
+                    break;
+            }
+        });
+
     }
 
     String getText() {
@@ -172,8 +195,7 @@ public class PosTerminal extends JPanel implements ActionListener {
             // Create simulator and install applet
             CardSimulator simulator = new CardSimulator();
             AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
-            // @Andrius: Temporally call with null, to run the project
-            // simulator.installApplet(calcAppletAID, CalcApplet.class);
+            // @Andrius: This inserts a card
             simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
 
             // Insert Card into "My terminal 1"
@@ -202,6 +224,17 @@ public class PosTerminal extends JPanel implements ActionListener {
             if (src instanceof JButton) {
                 char c = ((JButton) src).getText().charAt(0);
                 setText(sendKey((byte) c));
+                if (c=='X'){  // Reset environment
+                    for (Enumeration<AbstractButton> buttons = rbModeGroup.getElements(); buttons.hasMoreElements();) {
+                        AbstractButton button = buttons.nextElement();
+                        if (button.getText()=="Add"){
+                            button.setSelected(true);
+                        }
+                        else {
+                            button.setSelected(false);
+                        }
+                    }
+                }
             }
         } catch (Exception ex) {
             System.out.println(MSG_ERROR);
@@ -214,8 +247,8 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
     }
 
-    public ResponseAPDU sendKey(byte ins) {
-        CommandAPDU apdu = new CommandAPDU(0, ins, 0, 0, 5);
+    public ResponseAPDU sendKey(byte P1) {
+        CommandAPDU apdu = new CommandAPDU(0, (byte)appMode.toString().toCharArray()[0], P1, 0, 5);
         try {
             return applet.transmit(apdu);
         } catch (CardException e) {

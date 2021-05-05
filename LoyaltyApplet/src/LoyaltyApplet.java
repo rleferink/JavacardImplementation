@@ -1,19 +1,22 @@
+import com.sun.org.apache.xpath.internal.operations.Mod;
 import javacard.framework.*;
 import jdk.nashorn.internal.objects.annotations.Constructor;
 
 import javax.smartcardio.ResponseAPDU;
 
 public class LoyaltyApplet extends Applet implements ISO7816 {
-    private static final byte X = 0;
-    private static final byte Y = 1;
 
-    private short[] xy;
+
+    private static final byte X = 0;
+    private AppUtil.AppMode currentMode;
+
+    private short[] enteredValue;
     private short m;
     private byte[] lastOp;
     private boolean[] lastKeyWasDigit;
 
     public LoyaltyApplet() {
-        xy = JCSystem.makeTransientShortArray((short) 2, JCSystem.CLEAR_ON_RESET);
+        enteredValue = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
         lastOp = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
         lastKeyWasDigit = JCSystem.makeTransientBooleanArray((short) 1, JCSystem.CLEAR_ON_RESET);
         m = 0;
@@ -28,6 +31,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     public void process(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
         byte ins = buffer[OFFSET_INS];
+        byte P1 = buffer[OFFSET_P1];
         short le = -1;
 
         /* Ignore the APDU that selects this applet... */
@@ -36,6 +40,18 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
 
         switch (ins) {
+            case 'A':
+                currentMode= AppUtil.AppMode.ADD;
+                break;
+            case 'S': //apdu.setOutgoingAndSend((short) s, (short) 1);
+                currentMode= AppUtil.AppMode.SPEND;
+                break;
+            case 'V':
+                currentMode= AppUtil.AppMode.VIEW;
+                break;
+        }
+
+        switch (P1) {
             case '0':
                 digit((byte) 0);
                 break;
@@ -66,14 +82,12 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case '9':
                 digit((byte) 9);
                 break;
-            case 'S': //apdu.setOutgoingAndSend((short) s, (short) 1);
-                break;
             case '<':
             case 'X':
-            case 'V':
+            case 'O':
             case '*':
             case '#':
-                operator(ins);
+                operator(P1);
                 break;
             default:
                 ISOException.throwIt(SW_INS_NOT_SUPPORTED);
@@ -85,17 +99,41 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
         buffer[0] = (m == 0) ? (byte) 0x00 : (byte) 0x01;
         Util.setShort(buffer, (short) 1, (short) 0);
-        Util.setShort(buffer, (short) 3, xy[X]);
+        Util.setShort(buffer, (short) 3, enteredValue[X]);
         apdu.setOutgoingLength((short) 5);
         apdu.sendBytes((short) 0, (short) 5);
     }
 
     void digit(byte d) {
-        xy[X] = (short) ((short) (xy[X] * 10) + (short) (d & 0x00FF));
-        System.out.println(d + " digit pressed: " + xy[X]);
+        enteredValue[X] = (short) ((short) (enteredValue[X] * 10) + (short) (d & 0x00FF));
+        System.out.println(d + " digit pressed: " + enteredValue[X]);
     }
 
     void operator(byte op) throws ISOException {
-        System.out.println(op + " operator pressed");
+        switch (op){
+            case 'O':
+                executeOperation();
+                break;
+            case 'X':
+                enteredValue[X] = 0;
+                break;
+            case '<':
+                enteredValue[X] = (short) (enteredValue[X] / 10);
+                break;
+            default:
+                break;
+        }
+    }
+
+    // TODO: implement based on "currentMode"
+    void executeOperation(){
+        switch (currentMode){
+            case ADD:
+                break;
+            case SPEND:
+                break;
+            case VIEW:
+                break;
+        }
     }
 }
