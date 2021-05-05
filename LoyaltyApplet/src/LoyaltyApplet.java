@@ -103,9 +103,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
     void digit(byte d, APDU apdu) {
         enteredValue[X] = (short) ((short) (enteredValue[X] * 10) + (short) (d & 0x00FF));
-        System.out.println(d + " digit pressed: " + enteredValue[X]);
-
-
     }
 
     void operator(byte op) throws ISOException {
@@ -128,8 +125,14 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     void executeOperation(){
         switch (currentMode){
             case ADD:
+                // TODO: add check if balance can be increased
+                balance += enteredValue[X];
+                enteredValue[X] = 0;
                 break;
             case SPEND:
+                // TODO: add check if balance can be decreased
+                balance -= enteredValue[X];
+                enteredValue[X] = 0;
                 break;
             case VIEW:
                 enteredValue[X] = balance;

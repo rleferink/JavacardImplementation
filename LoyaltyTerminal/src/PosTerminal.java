@@ -124,17 +124,20 @@ public class PosTerminal extends JPanel implements ActionListener {
             switch (e.getActionCommand()){
                 case "Add":
                     appMode = AppUtil.AppMode.ADD;
-                    setText(String.format("ADD:   %20s", display.getText().substring(7)));
+
+                    setText(String.format("ADD  : %20s", 0));
                     break;
                 case "Spend":
                     appMode = AppUtil.AppMode.SPEND;
-                    setText(String.format("SPEND: %20s", display.getText().substring(7)));
+                    setText(String.format("SPEND: %20s", 0));
                     break;
                 case "View":
                     appMode = AppUtil.AppMode.VIEW;
-                    setText(String.format("VIEW:  %20s", display.getText().substring(7)));
+                    // Reset the input screen
+                    setText(String.format("VIEW : %20s", 0));
                     break;
             }
+            sendKey((byte) 'X'); // Reset the input screen
         });
 
     }
@@ -158,11 +161,11 @@ public class PosTerminal extends JPanel implements ActionListener {
             setText(MSG_ERROR);
         } else {
             if (appMode == AppUtil.AppMode.ADD){
-                setText(String.format("ADD:   %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
+                setText(String.format("ADD  : %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
             } else if (appMode == AppUtil.AppMode.SPEND){
                 setText(String.format("SPEND: %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
             } else {
-                setText(String.format("VIEW:  %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
+                setText(String.format("VIEW : %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
             }
             setMemory(data[0] == 0x01);
         }
@@ -183,7 +186,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     public void setEnabled(boolean b) {
         super.setEnabled(b);
         if (b) {
-            setText(String.format("ADD:   %20s", 0));
+            setText(String.format("ADD  : %20s", 0));
         } else {
             setText(MSG_DISABLED);
         }
