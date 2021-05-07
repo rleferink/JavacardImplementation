@@ -27,3 +27,6 @@ hs_err_pid*
 
 # ignore OUT folder content
 out/*
+DemoCalcProject/util/jcardsim/jcardsim-3.0.4-SNAPSHOT.jar
+DemoCalcProject/util/jcardsim/jcardsim-2.2.1-all.jar
+DemoCalcProject/util/jcardsim/jcardsim-2.2.2-all.jar
