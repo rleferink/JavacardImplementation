@@ -47,7 +47,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 currentMode= AppUtil.AppMode.ADD;
                 break;
 
-            case SEND_CERTIFICATE_AND_NONCE: send_certificate_and_nonce(apdu);
+            case SEND_CERTIFICATE_AND_NONCE: send_certificate_and_nonce(apdu); break;
             case ACK_ONLINE:
             case DECREASE_BALANCE:
 
@@ -148,6 +148,12 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //byte certificate = buffer[OFFSET_CDATA]
 
         //TODO: send certificate of card back with nonce
+        short nonce = (short) 1234;
+        short le = apdu.setOutgoing();
+        apdu.setOutgoingLength((short) 1);
+        buffer[0] = (byte) nonce;
+        System.out.println("Buffer: " + buffer[0]);
+        apdu.sendBytes((short) 0, (short) 1);
     }
 
     // TODO: complete implementation based on "currentMode"

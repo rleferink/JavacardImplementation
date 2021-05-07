@@ -129,7 +129,6 @@ public class PosTerminal extends JPanel implements ActionListener {
                 case "Spend":
                     appMode = AppUtil.AppMode.SPEND;
                     setText(String.format("SPEND: %20s", 0));
-                    spendingPoints();
                     break;
                 case "View":
                     appMode = AppUtil.AppMode.VIEW;
@@ -137,7 +136,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                     setText(String.format("VIEW : %20s", 0));
                     break;
             }
-            sendKey((byte) 'X'); // Reset the input screen
+            //sendKey((byte) 'X'); // Reset the input screen
         });
 
     }
@@ -222,7 +221,18 @@ public class PosTerminal extends JPanel implements ActionListener {
             if (src instanceof JButton) {
                 char c = ((JButton) src).getText().charAt(0);
                 setText(sendKey((byte) c));
-                if (c=='X'){  // Reset environment
+                if (c=='O'){
+                    switch (appMode){
+                        case ADD:
+                            break;
+                        case SPEND:
+                            spendingPoints();
+                            break;
+                        case VIEW:
+                            break;
+                    }
+                }
+                else if (c=='X'){  // Reset environment
                     for (Enumeration<AbstractButton> buttons = rbModeGroup.getElements(); buttons.hasMoreElements();) {
                         AbstractButton button = buttons.nextElement();
                         if (button.getText()=="Add"){
@@ -263,7 +273,14 @@ public class PosTerminal extends JPanel implements ActionListener {
         //int points = 100;
 
         //step 8: c -> t: nonce_1
-        //ResponseAPDU resp = applet.transmit(SELECT_APDU);
+        CommandAPDU apdu = new CommandAPDU(0, (byte) 0x20, 0,0,0);
+        try {
+            ResponseAPDU resp = applet.transmit(apdu);
+            byte[] data = resp.getData();
+            System.out.println(data);
+        } catch (CardException e) {
+            return;
+        }
 
         //step 9: t -> c: nonce_1 | online/offline | nonce_2
 
