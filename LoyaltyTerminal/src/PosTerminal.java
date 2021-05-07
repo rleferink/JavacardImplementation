@@ -124,12 +124,12 @@ public class PosTerminal extends JPanel implements ActionListener {
             switch (e.getActionCommand()){
                 case "Add":
                     appMode = AppUtil.AppMode.ADD;
-
                     setText(String.format("ADD  : %20s", 0));
                     break;
                 case "Spend":
                     appMode = AppUtil.AppMode.SPEND;
                     setText(String.format("SPEND: %20s", 0));
+                    spendingPoints();
                     break;
                 case "View":
                     appMode = AppUtil.AppMode.VIEW;
@@ -260,7 +260,7 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     void spendingPoints() {
         //step 3: enter amount of points to spend, now set to 100
-        int points = 100;
+        //int points = 100;
 
         //step 8: c -> t: nonce_1
         //ResponseAPDU resp = applet.transmit(SELECT_APDU);
