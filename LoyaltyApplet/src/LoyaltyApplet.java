@@ -32,6 +32,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     @Override
     public void process(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
+        //System.out.println("eerste buffer bytes: " + buffer[OFFSET_LC]);
         byte ins = buffer[OFFSET_INS];
         byte P1 = buffer[OFFSET_P1];
         short le = -1;
@@ -48,8 +49,8 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 break;
 
             case SEND_CERTIFICATE_AND_NONCE: send_certificate_and_nonce(apdu); break;
-            case ACK_ONLINE:
-            case DECREASE_BALANCE:
+            case ACK_ONLINE: ack_online(apdu); break;
+            case DECREASE_BALANCE: decrease_balance(apdu); break;
 
 
             case 'S':
@@ -140,20 +141,31 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     }
 
     private void send_certificate_and_nonce(APDU apdu){
+        System.out.println("send certificate and nonce");
         byte[] buffer = apdu.getBuffer();
         byte numBytes = buffer[OFFSET_LC];
         byte byteRead = (byte)(apdu.setIncomingAndReceive());
-        if (byteRead != 1) ISOException.throwIt(SW_WRONG_LENGTH);
+        System.out.println("numByte: " + numBytes);
+        System.out.println("byteRead: " + byteRead);
+        //if (byteRead != 1) ISOException.throwIt(SW_WRONG_LENGTH);
         //TODO: receive and validate certificate of terminal
         //byte certificate = buffer[OFFSET_CDATA]
 
         //TODO: send certificate of card back with nonce
-        short nonce = (short) 1234;
+        short nonce = (short) 12;
         short le = apdu.setOutgoing();
-        apdu.setOutgoingLength((short) 1);
+        apdu.setOutgoingLength((short) 3);
         buffer[0] = (byte) nonce;
-        System.out.println("Buffer: " + buffer[0]);
+        System.out.println("Buffer[0]: " + buffer[0]);
         apdu.sendBytes((short) 0, (short) 1);
+    }
+
+    private void ack_online(APDU apdu){
+        System.out.println("ack online");
+    }
+
+    private void decrease_balance(APDU apdu){
+        System.out.println("decrease balance");
     }
 
     // TODO: complete implementation based on "currentMode"

@@ -272,12 +272,16 @@ public class PosTerminal extends JPanel implements ActionListener {
         //step 3: enter amount of points to spend, now set to 100
         //int points = 100;
 
-        //step 8: c -> t: nonce_1
-        CommandAPDU apdu = new CommandAPDU(0, (byte) 0x20, 0,0,0);
+        //step 8: t -> c: nonce_1 (ins = 0x20 = send certificate and nonce)
+        CommandAPDU apdu = new CommandAPDU((byte)0xb0, (byte) 0x20, 0,0,0);
         try {
             ResponseAPDU resp = applet.transmit(apdu);
             byte[] data = resp.getData();
-            System.out.println(data);
+            if(data.length == 0){
+                System.out.println("Received buffer is empty");
+            } else{
+                System.out.println("Received buffer: " + data + "\nlength: " + data.length);
+            }
         } catch (CardException e) {
             return;
         }
