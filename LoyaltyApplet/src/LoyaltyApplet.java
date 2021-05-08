@@ -1,5 +1,9 @@
 import javacard.framework.*;
 
+import javax.sound.midi.SysexMessage;
+
+import static javacard.framework.JCSystem.makeTransientByteArray;
+
 public class LoyaltyApplet extends Applet implements ISO7816 {
 
 
@@ -19,7 +23,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
     public LoyaltyApplet() {
         enteredValue = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
-        lastOp = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
+        lastOp = makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
         lastKeyWasDigit = JCSystem.makeTransientBooleanArray((short) 1, JCSystem.CLEAR_ON_RESET);
         m = 0;
         register();
@@ -32,15 +36,18 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     @Override
     public void process(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
-        //System.out.println("eerste buffer bytes: " + buffer[OFFSET_LC]);
         byte ins = buffer[OFFSET_INS];
         byte P1 = buffer[OFFSET_P1];
+        byte P2 = buffer[OFFSET_P2];
         short le = -1;
+        byte[] tmp = JCSystem.makeTransientByteArray((short) (buffer[ISO7816.OFFSET_LC] & 0x00FF), JCSystem.CLEAR_ON_DESELECT);
 
         /* Ignore the APDU that selects this applet... */
         if (selectingApplet()) {
             return;
         }
+
+        short bytesLeft = (short) (buffer[OFFSET_LC] & 0x00FF);
 
         switch (ins) {
             case 'A':
@@ -48,7 +55,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 currentMode= AppUtil.AppMode.ADD;
                 break;
 
-            case SEND_CERTIFICATE_AND_NONCE: send_certificate_and_nonce(apdu); break;
+            //cases for protocol spending points
+            case SEND_CERTIFICATE_AND_NONCE:
+                readBuffer(apdu, tmp, (short) 0, bytesLeft);
+                send_certificate_and_nonce(tmp, apdu);
+                break;
             case ACK_ONLINE: ack_online(apdu); break;
             case DECREASE_BALANCE: decrease_balance(apdu); break;
 
@@ -117,6 +128,23 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, (short) 5);
     }
 
+    private void readBuffer(APDU apdu, byte[] dest, short offset, short length) {
+        System.out.println("\nCard: Command receiving");
+        byte[] buf = apdu.getBuffer();
+        short readCount = apdu.setIncomingAndReceive();
+        short i = 0;
+        System.out.println("readCount: " + readCount);
+        //System.out.println("length buffer: " + buf.length);
+        System.out.println("buf[5]: " + buf[5]);
+        Util.arrayCopy(buf,OFFSET_CDATA,dest,offset,readCount);
+        while ((short)(i + readCount) < length) {
+            i += readCount;
+            offset += readCount;
+            readCount = (short)apdu.receiveBytes(OFFSET_CDATA);
+            Util.arrayCopy(buf,OFFSET_CDATA,dest,offset,readCount);
+        }
+    }
+
     void digit(byte d, APDU apdu) {
         enteredValue[X] = (short) ((short) (enteredValue[X] * 10) + (short) (d & 0x00FF));
     }
@@ -140,13 +168,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
     }
 
-    private void send_certificate_and_nonce(APDU apdu){
-        System.out.println("send certificate and nonce");
-        byte[] buffer = apdu.getBuffer();
-        byte numBytes = buffer[OFFSET_LC];
-        byte byteRead = (byte)(apdu.setIncomingAndReceive());
-        System.out.println("numByte: " + numBytes);
-        System.out.println("byteRead: " + byteRead);
+    private void send_certificate_and_nonce(byte[] buffer, APDU apdu){
+        System.out.println("STEP 1 - send certificate and nonce");
+        //byte[] buffer = apdu.getBuffer();
+        //short byteRead = (apdu.setIncomingAndReceive());
+        //System.out.println("byteRead: " + byteRead);
         //if (byteRead != 1) ISOException.throwIt(SW_WRONG_LENGTH);
         //TODO: receive and validate certificate of terminal
         //byte certificate = buffer[OFFSET_CDATA]
@@ -154,10 +180,10 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //TODO: send certificate of card back with nonce
         short nonce = (short) 12;
         short le = apdu.setOutgoing();
-        apdu.setOutgoingLength((short) 3);
-        buffer[0] = (byte) nonce;
-        System.out.println("Buffer[0]: " + buffer[0]);
-        apdu.sendBytes((short) 0, (short) 1);
+        apdu.setOutgoingLength((short)1);
+        buffer[0]=(byte) nonce;
+        apdu.sendBytes((short) 0, (short)1);
+        System.out.println("Bytes sent back to Terminal\n");
     }
 
     private void ack_online(APDU apdu){

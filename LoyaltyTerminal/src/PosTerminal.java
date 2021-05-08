@@ -20,11 +20,13 @@ import javax.smartcardio.CardTerminals;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import javax.smartcardio.TerminalFactory;
+import javax.sound.midi.SysexMessage;
 import javax.swing.*;
 
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.smartcardio.CardSimulator;
 
+import java.math.BigInteger;
 /**
  * POS terminal for the Loyalty Applet.
  **
@@ -226,7 +228,14 @@ public class PosTerminal extends JPanel implements ActionListener {
                         case ADD:
                             break;
                         case SPEND:
-                            spendingPoints();
+                            System.out.println("Terminal: spending points");
+                            //spendingPoints();
+                            byte[] nonce = getBytes(BigInteger.valueOf(13));
+                            System.out.println("Nonce: " + nonce[0]);
+                            System.out.println("Creating CommandAPDU");
+                            CommandAPDU apdu = new CommandAPDU(0, (byte) 0x20, (byte)0,(byte)0,nonce,1);
+                            sendCommandAPDU(apdu);
+                            System.out.println("Command sent");
                             break;
                         case VIEW:
                             break;
@@ -247,6 +256,42 @@ public class PosTerminal extends JPanel implements ActionListener {
         } catch (Exception ex) {
             System.out.println(MSG_ERROR);
         }
+    }
+
+    ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
+        log(capdu);
+        ResponseAPDU rapdu = applet.transmit(capdu);
+        log(rapdu);
+        return rapdu;
+    }
+
+    void log(ResponseAPDU obj){
+        //display.append(obj.toString() + ", Data="+ toHexString(obj.getData()) + "\n");
+        System.out.println(obj.toString() + ", Data=" + toHexString(obj.getData()));
+    }
+
+    void log(CommandAPDU obj){
+        //display.append(obj.toString() + ", Data="+ toHexString(obj.getData()) + "\n");
+        System.out.println(obj.toString() + ", Data=" + toHexString(obj.getData()));
+    }
+
+    byte[] getBytes(BigInteger big) {
+        byte[] data = big.toByteArray();
+        if (data[0] == 0) {
+            byte[] tmp = data;
+            data = new byte[tmp.length - 1];
+            System.arraycopy(tmp, 1, data, 0, tmp.length - 1);
+        }
+        return data;
+    }
+
+    String toHexString(byte[] in) {
+        //System.out.println("len: " + in.length);
+        StringBuilder out = new StringBuilder(2*in.length);
+        for(int i = 0; i < in.length; i++) {
+            out.append(String.format("%02x ", (in[i] & 0xFF)));
+        }
+        return out.toString().toUpperCase();
     }
 
     class CloseEventListener extends WindowAdapter {
