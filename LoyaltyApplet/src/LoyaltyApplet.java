@@ -1,6 +1,9 @@
 import javacard.framework.*;
 
+import javax.smartcardio.CardException;
 import javax.sound.midi.SysexMessage;
+
+import java.math.BigInteger;
 
 import static javacard.framework.JCSystem.makeTransientByteArray;
 
@@ -73,59 +76,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 //instruction: VIEW
                 currentMode= AppUtil.AppMode.VIEW;
                 break;
-        }
-
-        switch (P1) {
-            case '0':
-                digit((byte) 0, apdu);
-                break;
-            case '1':
-                digit((byte) 1, apdu);
-                break;
-            case '2':
-                digit((byte) 2, apdu);
-                break;
-            case '3':
-                digit((byte) 3, apdu);
-                break;
-            case '4':
-                digit((byte) 4, apdu);
-                break;
-            case '5':
-                digit((byte) 5, apdu);
-                break;
-            case '6':
-                digit((byte) 6, apdu);
-                break;
-            case '7':
-                digit((byte) 7, apdu);
-                break;
-            case '8':
-                digit((byte) 8, apdu);
-                break;
-            case '9':
-                digit((byte) 9, apdu);
-                break;
-            case '<':
-            case 'X':
-            case 'O':
-            case '*':
-            case '#':
-                operator(P1);
-                break;
             default:
                 ISOException.throwIt(SW_INS_NOT_SUPPORTED);
         }
-
-        le = apdu.setOutgoing();
-        if (le < 5) {
-            ISOException.throwIt((short) (SW_WRONG_LENGTH | 5));
-        }
-        buffer[0] = (byte) currentMode.ordinal();
-        Util.setShort(buffer, (short) 1, (short) 0);
-        Util.setShort(buffer, (short) 3, enteredValue[X]);
-        apdu.setOutgoingLength((short) 5);
-        apdu.sendBytes((short) 0, (short) 5);
     }
 
     private void readBuffer(APDU apdu, byte[] dest, short offset, short length) {
@@ -145,29 +98,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
     }
 
-    void digit(byte d, APDU apdu) {
-        enteredValue[X] = (short) ((short) (enteredValue[X] * 10) + (short) (d & 0x00FF));
-    }
-
-    void operator(byte op) throws ISOException {
-        switch (op){
-            case 'O':
-                //execute operation
-                executeOperation();
-                break;
-            case 'X':
-                //remove inserted value
-                enteredValue[X] = 0;
-                break;
-            case '<':
-                //remove last digit
-                enteredValue[X] = (short) (enteredValue[X] / 10);
-                break;
-            default:
-                break;
-        }
-    }
-
     private void send_certificate_and_nonce(byte[] buffer, APDU apdu){
         System.out.println("STEP 1 - send certificate and nonce");
         //byte[] buffer = apdu.getBuffer();
@@ -178,11 +108,21 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //byte certificate = buffer[OFFSET_CDATA]
 
         //TODO: send certificate of card back with nonce
-        short nonce = (short) 12;
-        short le = apdu.setOutgoing();
-        apdu.setOutgoingLength((short)1);
-        buffer[0]=(byte) nonce;
-        apdu.sendBytes((short) 0, (short)1);
+        short nonce = (short) 11;
+        System.out.println("length of buffer: " + buffer.length);
+        apdu.setOutgoing();
+        System.out.println("1");
+        try {
+            //Util.setShort(buffer, (short) 0, nonce);
+        }
+        catch (TransactionException c){
+            System.out.println("Exception");
+            return;
+        }
+        System.out.println("2");
+        apdu.setOutgoingLength((short)2);
+        System.out.println("3");
+        apdu.sendBytes((short) 0, (short)2);
         System.out.println("Bytes sent back to Terminal\n");
     }
 
@@ -194,29 +134,13 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         System.out.println("decrease balance");
     }
 
-    // TODO: complete implementation based on "currentMode"
-    void executeOperation(){
-        switch (currentMode){
-            case ADD:
-                // TODO: add check if balance can be increased
-                balance += enteredValue[X];
-                enteredValue[X] = 0;
-                break;
-            case SPEND:
-                //receive nonce/counter
-                int counter = 0;
-
-
-
-                if(enteredValue[X] <= balance){
-                    balance -= enteredValue[X];
-                    enteredValue[X] = 0;
-                }
-
-                break;
-            case VIEW:
-                enteredValue[X] = balance;
-                break;
+    byte[] getBytes(BigInteger big) {
+        byte[] data = big.toByteArray();
+        if (data[0] == 0) {
+            byte[] tmp = data;
+            data = new byte[tmp.length - 1];
+            System.arraycopy(tmp, 1, data, 0, tmp.length - 1);
         }
+        return data;
     }
 }

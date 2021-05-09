@@ -58,6 +58,8 @@ public class PosTerminal extends JPanel implements ActionListener {
     static final CommandAPDU SELECT_APDU = new CommandAPDU(
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
 
+    private short[] enteredValue=new short[1];
+
     JTextField display;
     JPanel keypad;
 
@@ -222,7 +224,6 @@ public class PosTerminal extends JPanel implements ActionListener {
             Object src = e.getSource();
             if (src instanceof JButton) {
                 char c = ((JButton) src).getText().charAt(0);
-                setText(sendKey((byte) c));
                 if (c=='O'){
                     switch (appMode){
                         case ADD:
@@ -230,12 +231,12 @@ public class PosTerminal extends JPanel implements ActionListener {
                         case SPEND:
                             System.out.println("Terminal: spending points");
                             //spendingPoints();
-                            byte[] nonce = getBytes(BigInteger.valueOf(13));
+                            byte[] nonce = getBytes(BigInteger.valueOf(12));
                             System.out.println("Nonce: " + nonce[0]);
                             System.out.println("Creating CommandAPDU");
-                            CommandAPDU apdu = new CommandAPDU(0, (byte) 0x20, (byte)0,(byte)0,nonce,1);
+                            CommandAPDU apdu = new CommandAPDU(0xb0, (byte) 0x20, (byte)0,(byte)0,nonce);
                             sendCommandAPDU(apdu);
-                            System.out.println("Command sent");
+                            System.out.println("Command sent and received");
                             break;
                         case VIEW:
                             break;
@@ -243,6 +244,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                 }
                 else if (c=='X'){  // Reset environment
                     for (Enumeration<AbstractButton> buttons = rbModeGroup.getElements(); buttons.hasMoreElements();) {
+                        enteredValue[0]=0;
                         AbstractButton button = buttons.nextElement();
                         if (button.getText()=="Add"){
                             button.setSelected(true);
@@ -251,6 +253,16 @@ public class PosTerminal extends JPanel implements ActionListener {
                             button.setSelected(false);
                         }
                     }
+                }
+                else if (c=='<'){
+                    //remove one digit
+                    enteredValue[0] = (short) (enteredValue[0]/10);
+                }
+                else {
+                    //print digits
+                    byte digit = (byte) (((short) c) - 48);
+                    enteredValue[0] = (short) ((short) (enteredValue[0]*10) + (short)(digit));
+                    setText(enteredValue[0]);
                 }
             }
         } catch (Exception ex) {
