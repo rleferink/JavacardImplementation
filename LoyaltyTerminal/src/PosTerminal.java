@@ -20,11 +20,13 @@ import javax.smartcardio.CardTerminals;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import javax.smartcardio.TerminalFactory;
+import javax.sound.midi.SysexMessage;
 import javax.swing.*;
 
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.smartcardio.CardSimulator;
 
+import java.math.BigInteger;
 /**
  * POS terminal for the Loyalty Applet.
  **
@@ -55,6 +57,8 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     static final CommandAPDU SELECT_APDU = new CommandAPDU(
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
+
+    private short[] enteredValue=new short[1];
 
     JTextField display;
     JPanel keypad;
@@ -124,7 +128,6 @@ public class PosTerminal extends JPanel implements ActionListener {
             switch (e.getActionCommand()){
                 case "Add":
                     appMode = AppUtil.AppMode.ADD;
-
                     setText(String.format("ADD  : %20s", 0));
                     break;
                 case "Spend":
@@ -137,7 +140,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                     setText(String.format("VIEW : %20s", 0));
                     break;
             }
-            sendKey((byte) 'X'); // Reset the input screen
+            //sendKey((byte) 'X'); // Reset the input screen
         });
 
     }
@@ -221,9 +224,27 @@ public class PosTerminal extends JPanel implements ActionListener {
             Object src = e.getSource();
             if (src instanceof JButton) {
                 char c = ((JButton) src).getText().charAt(0);
-                setText(sendKey((byte) c));
-                if (c=='X'){  // Reset environment
+                if (c=='O'){
+                    switch (appMode){
+                        case ADD:
+                            break;
+                        case SPEND:
+                            System.out.println("Terminal: spending points");
+                            //spendingPoints();
+                            byte[] nonce = getBytes(BigInteger.valueOf(12));
+                            System.out.println("Nonce: " + nonce[0]);
+                            System.out.println("Creating CommandAPDU");
+                            CommandAPDU apdu = new CommandAPDU(0xb0, (byte) 0x20, (byte)0,(byte)0,nonce);
+                            sendCommandAPDU(apdu);
+                            System.out.println("Command sent and received");
+                            break;
+                        case VIEW:
+                            break;
+                    }
+                }
+                else if (c=='X'){  // Reset environment
                     for (Enumeration<AbstractButton> buttons = rbModeGroup.getElements(); buttons.hasMoreElements();) {
+                        enteredValue[0]=0;
                         AbstractButton button = buttons.nextElement();
                         if (button.getText()=="Add"){
                             button.setSelected(true);
@@ -233,10 +254,56 @@ public class PosTerminal extends JPanel implements ActionListener {
                         }
                     }
                 }
+                else if (c=='<'){
+                    //remove one digit
+                    enteredValue[0] = (short) (enteredValue[0]/10);
+                }
+                else {
+                    //print digits
+                    byte digit = (byte) (((short) c) - 48);
+                    enteredValue[0] = (short) ((short) (enteredValue[0]*10) + (short)(digit));
+                    setText(enteredValue[0]);
+                }
             }
         } catch (Exception ex) {
             System.out.println(MSG_ERROR);
         }
+    }
+
+    ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
+        log(capdu);
+        ResponseAPDU rapdu = applet.transmit(capdu);
+        log(rapdu);
+        return rapdu;
+    }
+
+    void log(ResponseAPDU obj){
+        //display.append(obj.toString() + ", Data="+ toHexString(obj.getData()) + "\n");
+        System.out.println(obj.toString() + ", Data=" + toHexString(obj.getData()));
+    }
+
+    void log(CommandAPDU obj){
+        //display.append(obj.toString() + ", Data="+ toHexString(obj.getData()) + "\n");
+        System.out.println(obj.toString() + ", Data=" + toHexString(obj.getData()));
+    }
+
+    byte[] getBytes(BigInteger big) {
+        byte[] data = big.toByteArray();
+        if (data[0] == 0) {
+            byte[] tmp = data;
+            data = new byte[tmp.length - 1];
+            System.arraycopy(tmp, 1, data, 0, tmp.length - 1);
+        }
+        return data;
+    }
+
+    String toHexString(byte[] in) {
+        //System.out.println("len: " + in.length);
+        StringBuilder out = new StringBuilder(2*in.length);
+        for(int i = 0; i < in.length; i++) {
+            out.append(String.format("%02x ", (in[i] & 0xFF)));
+        }
+        return out.toString().toUpperCase();
     }
 
     class CloseEventListener extends WindowAdapter {
@@ -260,10 +327,21 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     void spendingPoints() {
         //step 3: enter amount of points to spend, now set to 100
-        int points = 100;
+        //int points = 100;
 
-        //step 8: c -> t: nonce_1
-        //ResponseAPDU resp = applet.transmit(SELECT_APDU);
+        //step 8: t -> c: nonce_1 (ins = 0x20 = send certificate and nonce)
+        CommandAPDU apdu = new CommandAPDU((byte)0xb0, (byte) 0x20, 0,0,0);
+        try {
+            ResponseAPDU resp = applet.transmit(apdu);
+            byte[] data = resp.getData();
+            if(data.length == 0){
+                System.out.println("Received buffer is empty");
+            } else{
+                System.out.println("Received buffer: " + data + "\nlength: " + data.length);
+            }
+        } catch (CardException e) {
+            return;
+        }
 
         //step 9: t -> c: nonce_1 | online/offline | nonce_2
 
