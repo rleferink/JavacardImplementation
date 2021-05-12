@@ -41,38 +41,50 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte[] buffer = apdu.getBuffer();
         byte ins = buffer[OFFSET_INS];
         byte P1 = buffer[OFFSET_P1];
-        byte P2 = buffer[OFFSET_P2];
-        short le = -1;
-        byte[] tmp = JCSystem.makeTransientByteArray((short) (buffer[ISO7816.OFFSET_LC] & 0x00FF), JCSystem.CLEAR_ON_DESELECT);
+
 
         /* Ignore the APDU that selects this applet... */
         if (selectingApplet()) {
             return;
         }
 
-        short bytesLeft = (short) (buffer[OFFSET_LC] & 0x00FF);
+        AppUtil.AppMode insAsEnum = null;
+        for (AppUtil.AppMode i : AppUtil.AppMode.values()) {
+            if (i.mode == ins) {
+                insAsEnum = i;
+            }
+        }
 
-        switch (ins) {
-            case 'A':
+        switch (insAsEnum) {
+            case ADD:
                 //instruction: ADD
-                currentMode= AppUtil.AppMode.ADD;
+                currentMode = AppUtil.AppMode.ADD;
                 break;
 
-            //cases for protocol spending points
-            case SEND_CERTIFICATE_AND_NONCE:
-                readBuffer(apdu, tmp, (short) 0, bytesLeft);
-                send_certificate_and_nonce(tmp, apdu);
-                break;
-            case ACK_ONLINE: ack_online(apdu); break;
-            case DECREASE_BALANCE: decrease_balance(apdu); break;
+            // Andrius: These are not instructions. They can be considered as INS parameters, for example P1 or P2
+//            //cases for protocol spending points
+//            case ACK_ONLINE: ack_online(apdu); break;
+//            case DECREASE_BALANCE: decrease_balance(apdu); break;
 
-
-            case 'S':
+            case SPEND:
                 //instruction: SPEND
                 currentMode= AppUtil.AppMode.SPEND;
+
+                if (P1 == AppUtil.AppComState.SEND_CERTIFICATE_AND_NONCE.mode){
+                    // Andrius: Not sure why it is necessary:
+//                    readBuffer(apdu, tmp, (short) 0, bytesLeft);
+
+                    // Andrius: It is enough to read data:
+                    System.out.println("Nonce or buf[5]: " + buffer[OFFSET_CDATA]);
+
+                    // Andrius: Again, why so complicated?
+                    //send_certificate_and_nonce(tmp, apdu);
+                    sendCertificateAndNonce(apdu);
+                }
+
                 break;
 
-            case 'V':
+            case VIEW:
                 //instruction: VIEW
                 currentMode= AppUtil.AppMode.VIEW;
                 break;
@@ -81,50 +93,80 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
     }
 
-    private void readBuffer(APDU apdu, byte[] dest, short offset, short length) {
-        System.out.println("\nCard: Command receiving");
-        byte[] buf = apdu.getBuffer();
-        short readCount = apdu.setIncomingAndReceive();
-        short i = 0;
-        System.out.println("readCount: " + readCount);
-        //System.out.println("length buffer: " + buf.length);
-        System.out.println("buf[5]: " + buf[5]);
-        Util.arrayCopy(buf,OFFSET_CDATA,dest,offset,readCount);
-        while ((short)(i + readCount) < length) {
-            i += readCount;
-            offset += readCount;
-            readCount = (short)apdu.receiveBytes(OFFSET_CDATA);
-            Util.arrayCopy(buf,OFFSET_CDATA,dest,offset,readCount);
+    private void sendCertificateAndNonce(APDU apdu){
+        byte[] buffer = apdu.getBuffer();
+
+        short le = -1;
+        le = apdu.setOutgoing();
+        if (le < 5) {
+            ISOException.throwIt((short) (SW_WRONG_LENGTH | 5));
         }
-    }
 
-    private void send_certificate_and_nonce(byte[] buffer, APDU apdu){
         System.out.println("STEP 1 - send certificate and nonce");
-        //byte[] buffer = apdu.getBuffer();
-        //short byteRead = (apdu.setIncomingAndReceive());
-        //System.out.println("byteRead: " + byteRead);
-        //if (byteRead != 1) ISOException.throwIt(SW_WRONG_LENGTH);
-        //TODO: receive and validate certificate of terminal
-        //byte certificate = buffer[OFFSET_CDATA]
-
         //TODO: send certificate of card back with nonce
         short nonce = (short) 11;
         System.out.println("length of buffer: " + buffer.length);
-        apdu.setOutgoing();
+//        apdu.setOutgoing();
         System.out.println("1");
         try {
-            //Util.setShort(buffer, (short) 0, nonce);
+            Util.setShort(buffer, (short) 1, (short) 0);
+            Util.setShort(buffer, (short) 3, nonce);
         }
         catch (TransactionException c){
             System.out.println("Exception");
             return;
         }
         System.out.println("2");
-        apdu.setOutgoingLength((short)2);
+        apdu.setOutgoingLength((short) 5); // Must be the same as expected length at i4 at the caller.
         System.out.println("3");
-        apdu.sendBytes((short) 0, (short)2);
+        apdu.sendBytes((short) 0, (short) 5);///
         System.out.println("Bytes sent back to Terminal\n");
     }
+
+    private void readBuffer(APDU apdu, byte[] dest, short offset, short length) {
+//        System.out.println("\nCard: Command receiving");
+//        byte[] buf = apdu.getBuffer();
+//        short readCount = apdu.setIncomingAndReceive();
+//        short i = 0;
+//        System.out.println("readCount: " + readCount);
+//        //System.out.println("length buffer: " + buf.length);
+//        System.out.println("buf[5]: " + buf[5]);
+//        Util.arrayCopy(buf,OFFSET_CDATA,dest,offset,readCount);
+//        while ((short)(i + readCount) < length) {
+//            i += readCount;
+//            offset += readCount;
+//            readCount = (short)apdu.receiveBytes(OFFSET_CDATA);
+//            Util.arrayCopy(buf,OFFSET_CDATA,dest,offset,readCount);
+//        }
+    }
+
+//    private void send_certificate_and_nonce(byte[] buffer, APDU apdu){
+//        System.out.println("STEP 1 - send certificate and nonce");
+//        //byte[] buffer = apdu.getBuffer();
+//        //short byteRead = (apdu.setIncomingAndReceive());
+//        //System.out.println("byteRead: " + byteRead);
+//        //if (byteRead != 1) ISOException.throwIt(SW_WRONG_LENGTH);
+//        //TODO: receive and validate certificate of terminal
+//        //byte certificate = buffer[OFFSET_CDATA]
+//
+//        //TODO: send certificate of card back with nonce
+//        short nonce = (short) 11;
+//        System.out.println("length of buffer: " + buffer.length);
+//        apdu.setOutgoing();
+//        System.out.println("1");
+//        try {
+//            //Util.setShort(buffer, (short) 0, nonce);
+//        }
+//        catch (TransactionException c){
+//            System.out.println("Exception");
+//            return;
+//        }
+//        System.out.println("2");
+//        apdu.setOutgoingLength((short)2);
+//        System.out.println("3");
+//        apdu.sendBytes((short) 0, (short)2);
+//        System.out.println("Bytes sent back to Terminal\n");
+//    }
 
     private void ack_online(APDU apdu){
         System.out.println("ack online");

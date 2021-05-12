@@ -25,6 +25,7 @@ import javax.swing.*;
 
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.smartcardio.CardSimulator;
+import javacard.framework.ISOException;
 
 import java.math.BigInteger;
 /**
@@ -58,7 +59,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     static final CommandAPDU SELECT_APDU = new CommandAPDU(
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
 
-    private short[] enteredValue=new short[1];
+    private short enteredValue=0;
 
     JTextField display;
     JPanel keypad;
@@ -125,21 +126,19 @@ public class PosTerminal extends JPanel implements ActionListener {
         rbModeGroup.add(rb);
         keypad.add(rb);
         rb.addActionListener(e -> {
+            enteredValue = 0;
             switch (e.getActionCommand()){
                 case "Add":
                     appMode = AppUtil.AppMode.ADD;
-                    setText(String.format("ADD  : %20s", 0));
                     break;
                 case "Spend":
                     appMode = AppUtil.AppMode.SPEND;
-                    setText(String.format("SPEND: %20s", 0));
                     break;
                 case "View":
                     appMode = AppUtil.AppMode.VIEW;
-                    // Reset the input screen
-                    setText(String.format("VIEW : %20s", 0));
                     break;
             }
+            setText(enteredValue);
             //sendKey((byte) 'X'); // Reset the input screen
         });
 
@@ -150,6 +149,17 @@ public class PosTerminal extends JPanel implements ActionListener {
     }
 
     void setText(String txt) {
+        try {
+            if (appMode == AppUtil.AppMode.ADD) {
+                txt = String.format("ADD  : %20s", txt);
+            } else if (appMode == AppUtil.AppMode.SPEND) {
+                txt = String.format("SPEND: %20s", txt);
+            } else {
+                txt = String.format("VIEW : %20s", txt);
+            }
+        } catch (NumberFormatException nfe) {
+            txt = String.format("MSG  : %20s", txt);
+        }
         display.setText(txt);
     }
 
@@ -157,26 +167,10 @@ public class PosTerminal extends JPanel implements ActionListener {
         setText(Integer.toString(n));
     }
 
-    void setText(ResponseAPDU apdu) {
-        byte[] data = apdu.getData();
-        int sw = apdu.getSW();
-        if (sw != 0x9000 || data.length < 5) {
-            setText(MSG_ERROR);
-        } else {
-            if (data[0] == AppUtil.AppMode.ADD.ordinal()){
-                setText(String.format("ADD  : %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
-            } else if (data[0] == AppUtil.AppMode.SPEND.ordinal()){
-                setText(String.format("SPEND: %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
-            } else {
-                setText(String.format("VIEW : %20s", (short) (((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF))));
-            }
-        }
-    }
-
     public void setEnabled(boolean b) {
         super.setEnabled(b);
         if (b) {
-            setText(String.format("ADD  : %20s", 0));
+            setText(0);
         } else {
             setText(MSG_DISABLED);
         }
@@ -223,8 +217,8 @@ public class PosTerminal extends JPanel implements ActionListener {
         try {
             Object src = e.getSource();
             if (src instanceof JButton) {
-                char c = ((JButton) src).getText().charAt(0);
-                if (c=='O'){
+                String c = ((JButton) src).getText();
+                if (c=="OK"){
                     switch (appMode){
                         case ADD:
                             break;
@@ -234,7 +228,13 @@ public class PosTerminal extends JPanel implements ActionListener {
                             byte[] nonce = getBytes(BigInteger.valueOf(12));
                             System.out.println("Nonce: " + nonce[0]);
                             System.out.println("Creating CommandAPDU");
-                            CommandAPDU apdu = new CommandAPDU(0xb0, (byte) 0x20, (byte)0,(byte)0,nonce);
+//                            CommandAPDU apdu = new CommandAPDU(0xb0, AppUtil.AppMode.SPEND.mode, (byte)0,(byte)0,nonce);  // ?? Why i:0xb0. Also, Lc must not be nonce!
+
+                            // i4: specifies Maximum of bytes expected in the data field of the response to the command.
+                            // If it is not defined, we will get an error in LoyaltyApp. For now, let it be expected length 5 bytes:
+                            CommandAPDU apdu = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode,
+                                    AppUtil.AppComState.SEND_CERTIFICATE_AND_NONCE.mode, 0,nonce,5);
+
                             sendCommandAPDU(apdu);
                             System.out.println("Command sent and received");
                             break;
@@ -242,9 +242,9 @@ public class PosTerminal extends JPanel implements ActionListener {
                             break;
                     }
                 }
-                else if (c=='X'){  // Reset environment
+                else if (c=="X"){  // Reset environment
                     for (Enumeration<AbstractButton> buttons = rbModeGroup.getElements(); buttons.hasMoreElements();) {
-                        enteredValue[0]=0;
+                        enteredValue=0;
                         AbstractButton button = buttons.nextElement();
                         if (button.getText()=="Add"){
                             button.setSelected(true);
@@ -253,17 +253,19 @@ public class PosTerminal extends JPanel implements ActionListener {
                             button.setSelected(false);
                         }
                     }
+                    setText(enteredValue);
                 }
-                else if (c=='<'){
+                else if (c=="<"){
                     //remove one digit
-                    enteredValue[0] = (short) (enteredValue[0]/10);
+                    enteredValue = (short) (enteredValue/10);
+                    setText(enteredValue);
                 }
                 else {
                     //print digits
-                    byte digit = (byte) (((short) c) - 48);
-                    enteredValue[0] = (short) ((short) (enteredValue[0]*10) + (short)(digit));
-                    setText(enteredValue[0]);
+                    enteredValue = (short)(enteredValue * 10 + Integer.parseInt(c));
+                    setText(enteredValue);
                 }
+
             }
         } catch (Exception ex) {
             System.out.println(MSG_ERROR);
@@ -271,9 +273,17 @@ public class PosTerminal extends JPanel implements ActionListener {
     }
 
     ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
-        log(capdu);
         ResponseAPDU rapdu = applet.transmit(capdu);
-        log(rapdu);
+
+        byte[] data = rapdu.getData();
+        int sw = rapdu.getSW();
+        if (sw != 0x9000 || data.length < 5) {
+            setText(MSG_ERROR);
+        } else {
+            setText((short) (((data[1] & 0x000000FF) << 32) | ((data[2] & 0x000000FF) << 16) |
+                    ((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF)));
+        }
+
         return rapdu;
     }
 
