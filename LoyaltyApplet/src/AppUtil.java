@@ -13,7 +13,7 @@ public class AppUtil {
 
     // App communication state
     enum AppComState {
-        SEND_CERTIFICATE_AND_NONCE((byte) 0x10),
+        SEND_CERTIFICATE((byte) 0x10),
         ACK_ONLINE((byte) 0x20);
         public final Byte mode;
 

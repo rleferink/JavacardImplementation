@@ -9,6 +9,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.*;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -58,6 +59,8 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     static final CommandAPDU SELECT_APDU = new CommandAPDU(
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
+
+    String POSTerminal = "certificate POSTerminal";
 
     private short enteredValue=0;
 
@@ -224,19 +227,60 @@ public class PosTerminal extends JPanel implements ActionListener {
                             break;
                         case SPEND:
                             System.out.println("Terminal: spending points");
-                            //spendingPoints();
-                            byte[] nonce = getBytes(BigInteger.valueOf(12));
-                            System.out.println("Nonce: " + nonce[0]);
-                            System.out.println("Creating CommandAPDU");
-//                            CommandAPDU apdu = new CommandAPDU(0xb0, AppUtil.AppMode.SPEND.mode, (byte)0,(byte)0,nonce);  // ?? Why i:0xb0. Also, Lc must not be nonce!
+                            byte[] counter = getBytes(BigInteger.valueOf(3));
+
+                            //step 3: amount to spend is entered
+                            short amount = enteredValue;
+
+                            //step 4: send certificate
+                            byte[] certificate = POSTerminal.getBytes();
+                            byte[] send = new byte[counter.length + certificate.length];
+                            System.arraycopy(counter, 0, send, 0, counter.length);
+                            System.arraycopy(certificate, 0, send, counter.length, certificate.length);
+                            CommandAPDU apdu_certificate = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
+
+                            //step 6: receive certificate and counter = 1
+                            ResponseAPDU res_certificate = sendCommandAPDU(apdu_certificate);
+                            byte[] received = res_certificate.getData();
+                            short buffer_size = (short) received.length;
+                            String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size-13));
+                            if(received[0] == counter[0] + 1){
+                                System.out.println("Counter CORRECT");
+                            }
+                            if(certificate_card.equals("certificate card")){
+                                System.out.println("Certificate card CORRECT");
+                            }
+                            else{
+                                return;
+                            }
+                            System.out.println("T receives counter: " + received[0]);
+
+                            //step 13: is balance >= n | counter +=1
+                            //TODO: from here
+                            System.out.println("T -> C: balance >= n | " + counter[0]+1);
 
                             // i4: specifies Maximum of bytes expected in the data field of the response to the command.
                             // If it is not defined, we will get an error in LoyaltyApp. For now, let it be expected length 5 bytes:
-                            CommandAPDU apdu = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode,
-                                    AppUtil.AppComState.SEND_CERTIFICATE_AND_NONCE.mode, 0,nonce,5);
+                           // CommandAPDU apdu = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode,                                    AppUtil.AppComState.SEND_CERTIFICATE.mode, 0,counter,5);
 
-                            sendCommandAPDU(apdu);
-                            System.out.println("Command sent and received");
+                            //step 14: receive yes/no and counter + 1
+                            //ResponseAPDU response = sendCommandAPDU(apdu);
+                            //byte[] received = response.getData();
+                            //if(received[4] != counter[0] + 1){
+                            //    System.out.println("Counter is INCORRECT");
+                            //}
+                            //System.out.println("T receives: " + received[4]);
+
+                            //step 15: card needs to decrease points | counter+1
+
+
+                            //step 17: c -> t: confirm balance decreased + counter+1
+
+
+
+
+
+
                             break;
                         case VIEW:
                             break;
@@ -255,13 +299,11 @@ public class PosTerminal extends JPanel implements ActionListener {
                     }
                     setText(enteredValue);
                 }
-                else if (c=="<"){
-                    //remove one digit
+                else if (c=="<"){ // Remove one digit
                     enteredValue = (short) (enteredValue/10);
                     setText(enteredValue);
                 }
-                else {
-                    //print digits
+                else { // Print digits
                     enteredValue = (short)(enteredValue * 10 + Integer.parseInt(c));
                     setText(enteredValue);
                 }
@@ -283,7 +325,7 @@ public class PosTerminal extends JPanel implements ActionListener {
             setText((short) (((data[1] & 0x000000FF) << 32) | ((data[2] & 0x000000FF) << 16) |
                     ((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF)));
         }
-
+        //System.out.println("Data from Card:" + toHexString(rapdu.getData()));
         return rapdu;
     }
 
