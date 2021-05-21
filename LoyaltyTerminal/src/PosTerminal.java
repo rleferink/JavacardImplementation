@@ -71,6 +71,7 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     private short enteredValue=0;
 
+
     JTextField display;
     JPanel keypad;
 
@@ -149,9 +150,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                     break;
             }
             setText(enteredValue);
-            //sendKey((byte) 'X'); // Reset the input screen
         });
-
     }
 
     String getText() {
@@ -235,68 +234,26 @@ public class PosTerminal extends JPanel implements ActionListener {
                         case SPEND:
                             System.out.println("Terminal: spending points");
                             byte[] counter = getBytes(BigInteger.valueOf(3));
+                            byte[] received = {};
 
                             //step 3: amount to spend is entered
                             short amount = enteredValue;
-                            System.out.println("amount: " + amount);
+                            System.out.println("Amount entered: " + amount);
 
                             //step 4: send certificate
-                            byte[] certificate = POSTerminal.getBytes();
-                            byte[] send = new byte[counter.length + certificate.length];
-                            System.arraycopy(counter, 0, send, 0, counter.length);
-                            System.arraycopy(certificate, 0, send, counter.length, certificate.length);
-                            CommandAPDU apdu_certificate = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
-
-                            //step 6: receive certificate and counter = 1
-                            ResponseAPDU res_certificate = sendCommandAPDU(apdu_certificate);
-                            byte[] received = res_certificate.getData();
-                            short buffer_size = (short) received.length;
-                            String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size-13));
-                            if(received[0] == counter[0] + 1){
-                                System.out.println("Counter CORRECT");
-                            }
-                            if(certificate_card.equals("certificate card")){
-                                System.out.println("Certificate card CORRECT");
-                            }
-                            else{
-                                return;
-                            }
-                            System.out.println("T receives counter: " + received[0]);
+                            received = sendAndCheckCertificate(counter, received);
 
                             //step 12: any revoked transactions?
                             //TODO: !!!!!!!
 
-
-
                             //step 13: is balance >= n? | counter +=1
-                            counter[0] = (byte) (received[0] + 1);
-                            System.out.println("T -> C: balance >= amount? | " + (counter[0]));
-                            byte[] amountArray = {(byte) amount};
-                            byte[] balance_check = new byte[counter.length + amountArray.length];
-                            System.arraycopy(counter, 0, balance_check, 0, counter.length);
-                            System.arraycopy(amountArray, 0, balance_check, counter.length, amountArray.length);
-                            CommandAPDU apdu_amount_check = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode, AppUtil.AppComState.SEND_AMOUNT_CHECK.mode, 0, balance_check, 2);
-
-                            ResponseAPDU res_amount_check = sendCommandAPDU(apdu_amount_check);
-
-                            received = res_amount_check.getData();
-                            if(received[0] == counter[0] + 1){
-                                System.out.println("Counter CORRECT");
-                            }
-                            if(received[1] == (byte)1){
-                                System.out.println("Balance high enough");
-                            }
-                            else{
-                                return;
-                            }
-                            System.out.println("T receives counter: " + received[0]);
+                            received = checkBalanceAndDecrease(counter, received,amount);
 
                             //step 16: store transaction?
                             //TODO if we still think this is useful
 
-
-                            //step 18: remove card
                             setText("Remove card");
+                            System.out.println("End spending protocol");
                             break;
                         case VIEW:
                             break;
@@ -326,9 +283,81 @@ public class PosTerminal extends JPanel implements ActionListener {
 
             }
         } catch (Exception ex) {
-            System.out.println(MSG_ERROR  + "1");
+            System.out.println(MSG_ERROR);
             System.out.println(ex);
         }
+    }
+
+    byte[] checkBalanceAndDecrease(byte[] counter, byte[] received, short amount){
+        counter[0] = (byte) (received[0] + 1);
+        System.out.println("T -> C: balance >= amount? | " + (counter[0]));
+        byte[] amountArray = {(byte) amount};
+        byte[] balance_check = new byte[counter.length + amountArray.length];
+        System.arraycopy(counter, 0, balance_check, 0, counter.length);
+        System.arraycopy(amountArray, 0, balance_check, counter.length, amountArray.length);
+        CommandAPDU apdu_amount_check = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode, AppUtil.AppComState.SEND_AMOUNT_CHECK.mode, 0, balance_check, 2);
+
+        ResponseAPDU res_amount_check = null;
+        try {
+            res_amount_check = sendCommandAPDU(apdu_amount_check);
+        } catch (CardException e) {
+            System.out.println((MSG_ERROR));
+            e.printStackTrace();
+        }
+
+        received = res_amount_check.getData();
+        if(received[0] == counter[0] + 1){
+            System.out.println("Counter CORRECT");
+        }
+        else{
+            System.out.println("Counter INCORRECT");
+            //TODO: stop protocol if incorrect
+        }
+
+        if(received[1] == (byte)1){
+            System.out.println("Balance high enough");
+        }
+        else{
+            System.out.println("Balance NOT high enough");
+            //TODO: stop protocol if balance not high enough
+        }
+        return received;
+    }
+
+    byte[] sendAndCheckCertificate(byte[] counter, byte[] received){
+        byte[] certificate = POSTerminal.getBytes();
+        byte[] send = new byte[counter.length + certificate.length];
+        System.arraycopy(counter, 0, send, 0, counter.length);
+        System.arraycopy(certificate, 0, send, counter.length, certificate.length);
+        CommandAPDU apdu_certificate = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
+
+        //step 6: receive certificate and counter = 1
+        ResponseAPDU res_certificate = null;
+        try {
+            res_certificate = sendCommandAPDU(apdu_certificate);
+        } catch (CardException e) {
+            System.out.println((MSG_ERROR));
+            e.printStackTrace();
+        }
+        received = res_certificate.getData();
+        short buffer_size = (short) received.length;
+        String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size-13));
+        if(received[0] == counter[0] + 1){
+            System.out.println("Counter CORRECT");
+        }
+        else{
+            System.out.println("Counter INCORRECT");
+            //TODO: stop protocol if incorrect
+        }
+
+        if(certificate_card.equals("certificate card")){
+            System.out.println("Certificate card CORRECT");
+        }
+        else{
+            System.out.println("certificate INCORRECT");
+            //TODO: stop protocol if incorrect
+        }
+        return received;
     }
 
     ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
@@ -342,7 +371,6 @@ public class PosTerminal extends JPanel implements ActionListener {
             setText((short) (((data[1] & 0x000000FF) << 32) | ((data[2] & 0x000000FF) << 16) |
                     ((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF)));
         }
-        //System.out.println("Data from Card:" + toHexString(rapdu.getData()));
         return rapdu;
     }
 

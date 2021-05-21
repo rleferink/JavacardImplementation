@@ -64,25 +64,17 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 currentMode = AppUtil.AppMode.ADD;
                 break;
 
-            // Andrius: These are not instructions. They can be considered as INS parameters, for example P1 or P2
-//            //cases for protocol spending points
-//            case ACK_ONLINE: ack_online(apdu); break;
-//            case DECREASE_BALANCE: decrease_balance(apdu); break;
-
             case SPEND:
+                //instruction: SPEND
                 currentMode= AppUtil.AppMode.SPEND;
-
                 if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    System.out.println("C receives: " + buffer[OFFSET_CDATA]);
                     sendCertificateAndCounter(apdu);
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    System.out.println("C receives: " + buffer[OFFSET_CDATA]);
                     checkAmountAndDecreaseBalance(apdu);
                     System.out.println("");
                 }
-
                 break;
 
             case VIEW:
@@ -106,7 +98,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         short buffer_size = (short) buffer[4];
         short counter = (short) buffer[5];
         String certificate_terminal = new String(Arrays.copyOfRange(buffer,6,buffer_size+5));
-        System.out.println(certificate_terminal);
         if(certificate_terminal.equals("certificate POSTerminal")){
             System.out.println("Certificate  POSTerminal CORRECT");
         }
