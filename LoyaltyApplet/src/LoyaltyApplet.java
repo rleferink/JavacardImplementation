@@ -74,7 +74,12 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
                 if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
                     System.out.println("C receives: " + buffer[OFFSET_CDATA]);
-                    sendCertificateAndNonce(apdu);
+                    sendCertificateAndCounter(apdu);
+                    System.out.println("");
+                }
+                else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
+                    System.out.println("C receives: " + buffer[OFFSET_CDATA]);
+                    checkAmountAndDecreaseBalance(apdu);
                     System.out.println("");
                 }
 
@@ -89,7 +94,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
     }
 
-    private void sendCertificateAndNonce(APDU apdu){
+    private void sendCertificateAndCounter(APDU apdu){
         byte[] buffer = apdu.getBuffer();
 
         short le = -1;
@@ -98,8 +103,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             ISOException.throwIt((short) (SW_WRONG_LENGTH | 30));
         }
 
-        //System.out.println("STEP 1 - send certificate and nonce");
-        //TODO: send certificate of card back with counter+1
         short buffer_size = (short) buffer[4];
         short counter = (short) buffer[5];
         String certificate_terminal = new String(Arrays.copyOfRange(buffer,6,buffer_size+5));
@@ -122,6 +125,40 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         System.arraycopy(send, 0, buffer, 0, send.length);
         apdu.sendBytes((short) 0, (short) 30);
     }
+
+    private void checkAmountAndDecreaseBalance(APDU apdu){
+        byte[] buffer = apdu.getBuffer();
+
+        short le = -1;
+        le = apdu.setOutgoing();
+        if (le < 2) {
+            ISOException.throwIt((short) (SW_WRONG_LENGTH | 4));
+        }
+
+        short counter = (short) buffer[5];
+        short amount = (short) buffer[6];
+        byte[] yesNo = {(byte)0};
+        System.out.println(amount);
+        if(amount <= balance){
+            System.out.println("Amount <= balance");
+            yesNo[0] = (byte)1;
+            balance -= amount;
+        }
+        else{
+            return;
+        }
+
+        counter += 1;
+        System.out.println("C -> T: " + counter);
+        byte[] counterr = {(byte) counter};
+        byte[] send = new byte[counterr.length + yesNo.length];
+        System.arraycopy(counterr, 0, send, 0, counterr.length);
+        System.arraycopy(yesNo, 0, send, counterr.length, yesNo.length);
+        apdu.setOutgoingLength((short) 2); // Must be the same as expected length at i4 at the caller.
+        System.arraycopy(send, 0, buffer, 0, send.length);
+        apdu.sendBytes((short) 0, (short) 2);
+    }
+
 
 /*    private void readBuffer(APDU apdu, byte[] dest, short offset, short length) {
         System.out.println("\nCard: Command receiving");
