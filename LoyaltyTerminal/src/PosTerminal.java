@@ -228,26 +228,39 @@ public class PosTerminal extends JPanel implements ActionListener {
             if (src instanceof JButton) {
                 String c = ((JButton) src).getText();
                 if (c=="OK"){
+                    byte[] received_data = {};
+                    byte[] counter = getBytes(BigInteger.valueOf(1));
+                    short amount = 0;
                     switch (appMode){
                         case ADD:
+                            //step 3-6 certificates
+                            received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.ADD.mode);
+                            //step 12 get amount
+                            amount = enteredValue;
+                            System.out.println("Amount entered: " + amount);
+                            //step 13 increase balance on the card
+                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.ADD.mode);
+                            //step 14 store transaction
+                            //TODO: Storing the transaction if we want to do it
+
+                            setText("Remove card");
                             break;
                         case SPEND:
                             System.out.println("Terminal: spending points");
-                            byte[] counter = getBytes(BigInteger.valueOf(3));
-                            byte[] received = {};
+
 
                             //step 3: amount to spend is entered
-                            short amount = enteredValue;
+                            amount = enteredValue;
                             System.out.println("Amount entered: " + amount);
 
                             //step 4: send certificate
-                            received = sendAndCheckCertificate(counter, received);
+                            received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.SPEND.mode);
 
                             //step 12: any revoked transactions?
                             //TODO: !!!!!!!
 
                             //step 13: is balance >= n? | counter +=1
-                            received = checkBalanceAndDecrease(counter, received,amount);
+                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.SPEND.mode);
 
                             //step 16: store transaction?
                             //TODO if we still think this is useful
@@ -265,8 +278,8 @@ public class PosTerminal extends JPanel implements ActionListener {
                                 System.out.println((MSG_ERROR));
                                 ex.printStackTrace();
                             }
-                            received = res_view.getData();
-                            setText((short) received[0]);
+                            received_data = res_view.getData();
+                            setText((short) received_data[0]);
                             break;
                     }
                 }
@@ -299,14 +312,14 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
     }
 
-    byte[] checkBalanceAndDecrease(byte[] counter, byte[] received, short amount){
+    byte[] changeBalance(byte[] counter, byte[] received, short amount, byte state){
         counter[0] = (byte) (received[0] + 1);
         System.out.println("T -> C: balance >= amount? | " + (counter[0]));
         byte[] amountArray = {(byte) amount};
         byte[] balance_check = new byte[counter.length + amountArray.length];
         System.arraycopy(counter, 0, balance_check, 0, counter.length);
         System.arraycopy(amountArray, 0, balance_check, counter.length, amountArray.length);
-        CommandAPDU apdu_amount_check = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode, AppUtil.AppComState.SEND_AMOUNT_CHECK.mode, 0, balance_check, 2);
+        CommandAPDU apdu_amount_check = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_AMOUNT_CHECK.mode, 0, balance_check, 2);
 
         ResponseAPDU res_amount_check = null;
         try {
@@ -328,20 +341,19 @@ public class PosTerminal extends JPanel implements ActionListener {
         if(received[1] == (byte)1){
             System.out.println("Balance high enough");
         }
-        else{
+        else if(state == AppUtil.AppMode.SPEND.mode){
             System.out.println("Balance NOT high enough");
             //TODO: stop protocol if balance not high enough
         }
         return received;
     }
 
-    byte[] sendAndCheckCertificate(byte[] counter, byte[] received){
+    byte[] sendAndCheckCertificate(byte[] counter, byte[] received, byte state){
         byte[] certificate = POSTerminal.getBytes();
         byte[] send = new byte[counter.length + certificate.length];
         System.arraycopy(counter, 0, send, 0, counter.length);
         System.arraycopy(certificate, 0, send, counter.length, certificate.length);
-        CommandAPDU apdu_certificate = new CommandAPDU(0x00, AppUtil.AppMode.SPEND.mode, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
-
+        CommandAPDU apdu_certificate = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
         //step 6: receive certificate and counter = 1
         ResponseAPDU res_certificate = null;
         try {
@@ -360,7 +372,6 @@ public class PosTerminal extends JPanel implements ActionListener {
             System.out.println("Counter INCORRECT");
             //TODO: stop protocol if incorrect
         }
-
         if(certificate_card.equals("certificate card")){
             System.out.println("Certificate card CORRECT");
         }
