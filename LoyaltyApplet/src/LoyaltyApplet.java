@@ -68,11 +68,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 //instruction: SPEND
                 currentMode= AppUtil.AppMode.SPEND;
                 if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    sendCertificateAndCounter(apdu);
+                    sendCertificateAndCounter(apdu, buffer);
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    checkAmountAndDecreaseBalance(apdu);
+                    checkAmountAndDecreaseBalance(apdu, buffer);
                     System.out.println("");
                 }
                 break;
@@ -80,26 +80,15 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case VIEW:
                 //instruction: VIEW
                 currentMode= AppUtil.AppMode.VIEW;
+                view_balance(apdu, buffer);
 
-                short le = -1;
-                le = apdu.setOutgoing();
-                if (le < 1) {
-                    ISOException.throwIt((short) (SW_WRONG_LENGTH | 1));
-                }
-
-                byte[] send_balance = {(byte) balance};
-                apdu.setOutgoingLength((short) 1); // Must be the same as expected length at i4 at the caller.
-                System.arraycopy(send_balance, 0, buffer, 0, send_balance.length);
-                apdu.sendBytes((short) 0, (short) 1);
                 break;
             default:
                 ISOException.throwIt(SW_INS_NOT_SUPPORTED);
         }
     }
 
-    private void sendCertificateAndCounter(APDU apdu){
-        byte[] buffer = apdu.getBuffer();
-
+    private void sendCertificateAndCounter(APDU apdu, byte[] buffer){
         short le = -1;
         le = apdu.setOutgoing();
         if (le < 30) {
@@ -128,9 +117,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, (short) 30);
     }
 
-    private void checkAmountAndDecreaseBalance(APDU apdu){
-        byte[] buffer = apdu.getBuffer();
-
+    private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
         short le = -1;
         le = apdu.setOutgoing();
         if (le < 2) {
@@ -159,6 +146,19 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.setOutgoingLength((short) 2); // Must be the same as expected length at i4 at the caller.
         System.arraycopy(send, 0, buffer, 0, send.length);
         apdu.sendBytes((short) 0, (short) 2);
+    }
+
+    private void view_balance(APDU apdu, byte[] buffer){
+        short le = -1;
+        le = apdu.setOutgoing();
+        if (le < 1) {
+            ISOException.throwIt((short) (SW_WRONG_LENGTH | 1));
+        }
+
+        byte[] send_balance = {(byte) balance};
+        apdu.setOutgoingLength((short) 1); // Must be the same as expected length at i4 at the caller.
+        System.arraycopy(send_balance, 0, buffer, 0, send_balance.length);
+        apdu.sendBytes((short) 0, (short) 1);
     }
 
 
