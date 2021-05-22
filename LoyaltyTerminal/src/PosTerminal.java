@@ -256,6 +256,17 @@ public class PosTerminal extends JPanel implements ActionListener {
                             System.out.println("End spending protocol");
                             break;
                         case VIEW:
+                            byte[] empty_data = {(byte) 0};
+                            CommandAPDU apdu_view = new CommandAPDU(0x00, AppUtil.AppMode.VIEW.mode, 0, 0, empty_data, 1);
+                            ResponseAPDU res_view = null;
+                            try {
+                                res_view = sendCommandAPDU(apdu_view);
+                            } catch (CardException ex) {
+                                System.out.println((MSG_ERROR));
+                                ex.printStackTrace();
+                            }
+                            received = res_view.getData();
+                            setText((short) received[0]);
                             break;
                     }
                 }

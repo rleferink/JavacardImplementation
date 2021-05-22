@@ -80,6 +80,17 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case VIEW:
                 //instruction: VIEW
                 currentMode= AppUtil.AppMode.VIEW;
+
+                short le = -1;
+                le = apdu.setOutgoing();
+                if (le < 1) {
+                    ISOException.throwIt((short) (SW_WRONG_LENGTH | 1));
+                }
+
+                byte[] send_balance = {(byte) balance};
+                apdu.setOutgoingLength((short) 1); // Must be the same as expected length at i4 at the caller.
+                System.arraycopy(send_balance, 0, buffer, 0, send_balance.length);
+                apdu.sendBytes((short) 0, (short) 1);
                 break;
             default:
                 ISOException.throwIt(SW_INS_NOT_SUPPORTED);
