@@ -1,10 +1,16 @@
 import javacard.framework.*;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.CardException;
 import javax.sound.midi.SysexMessage;
 
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.util.Arrays;
+import javax.crypto.Cipher;
 
 import static javacard.framework.JCSystem.makeTransientByteArray;
 
@@ -33,6 +39,46 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         lastKeyWasDigit = JCSystem.makeTransientBooleanArray((short) 1, JCSystem.CLEAR_ON_RESET);
         m = 0;
         register();
+
+        //TODO set keys in the certificates
+        //TODO obtain keys from certificate
+        try {
+            //generate key pair
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            KeyPair pair = generator.generateKeyPair();
+            PrivateKey privateKey = pair.getPrivate();
+            PublicKey publicKey = pair.getPublic();
+
+            //set string which needs to be encrypted
+            String secretMessage = "1234";
+            Cipher encryptCipher = Cipher.getInstance("RSA");
+            encryptCipher.init(Cipher.ENCRYPT_MODE,publicKey);
+
+            //create byte[] to store encrypted message
+            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
+            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
+
+            //create decrypt cipher
+            Cipher decryptCipher = Cipher.getInstance("RSA");
+            decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
+
+            //create byte[] to store decrypted message and then into a string
+            byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
+            String decryptedMessage = new String(decryptedMessageBytes, StandardCharsets.UTF_8);
+
+            //check if original message is equal to the decrypted message
+            if(secretMessage.equals(decryptedMessage)){
+                System.out.println("Loyalty Applet: messages are equal");
+            };
+
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
+            e.printStackTrace();
+        } catch (IllegalBlockSizeException e) {
+            e.printStackTrace();
+        } catch (BadPaddingException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void install(byte[] buffer, short offset, byte length) throws SystemException {

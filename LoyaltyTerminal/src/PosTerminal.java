@@ -9,6 +9,8 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.*;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -16,6 +18,10 @@ import java.util.Collections;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
@@ -78,7 +84,46 @@ public class PosTerminal extends JPanel implements ActionListener {
     CardChannel applet;
 
     public PosTerminal(JFrame parent) {
-        //simulatorInterface = new JavaxSmartCardInterface(); // SIM
+        //TODO set keys in the certificates
+        //TODO obtain keys from certificate
+        try {
+            //generate key pair
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            KeyPair pair = generator.generateKeyPair();
+            PrivateKey privateKey = pair.getPrivate();
+            PublicKey publicKey = pair.getPublic();
+
+            //set string which needs to be encrypted
+            String secretMessage = "1234";
+            Cipher encryptCipher = Cipher.getInstance("RSA");
+            encryptCipher.init(Cipher.ENCRYPT_MODE,publicKey);
+
+            //create byte[] to store encrypted message
+            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
+            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
+
+            //create decrypt cipher
+            Cipher decryptCipher = Cipher.getInstance("RSA");
+            decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
+
+            //create byte[] to store decrypted message and then into a string
+            byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
+            String decryptedMessage = new String(decryptedMessageBytes, StandardCharsets.UTF_8);
+
+            //check if original message is equal to the decrypted message
+            if(secretMessage.equals(decryptedMessage)){
+                System.out.println("POS terminal: messages are equal");
+            };
+
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
+            e.printStackTrace();
+        } catch (IllegalBlockSizeException e) {
+            e.printStackTrace();
+        } catch (BadPaddingException e) {
+            e.printStackTrace();
+        }
+
         buildGUI(parent);
         setEnabled(false);
         (new SimulatedCardThread()).start();
@@ -235,19 +280,22 @@ public class PosTerminal extends JPanel implements ActionListener {
                         case ADD:
                             //step 3-6 certificates
                             received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.ADD.mode);
+
                             //step 12 get amount
                             amount = enteredValue;
                             System.out.println("Amount entered: " + amount);
+
                             //step 13 increase balance on the card
                             received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.ADD.mode);
+
                             //step 14 store transaction
                             //TODO: Storing the transaction if we want to do it
+                            //store_transaction(cardId, timestamp, terminalID, amount)
 
                             setText("Remove card");
                             break;
                         case SPEND:
                             System.out.println("Terminal: spending points");
-
 
                             //step 3: amount to spend is entered
                             amount = enteredValue;
@@ -256,7 +304,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                             //step 4: send certificate
                             received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.SPEND.mode);
 
-                            //step 12: any revoked transactions?
+                            //step 12: any revoked transactions in the database?
                             //TODO: !!!!!!!
 
                             //step 13: is balance >= n? | counter +=1
@@ -264,6 +312,7 @@ public class PosTerminal extends JPanel implements ActionListener {
 
                             //step 16: store transaction?
                             //TODO if we still think this is useful
+                            //store_transaction(cardId, timestamp, terminalID, amount)
 
                             setText("Remove card");
                             System.out.println("End spending protocol");

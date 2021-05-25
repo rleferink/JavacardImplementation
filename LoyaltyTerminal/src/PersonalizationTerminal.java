@@ -4,13 +4,15 @@ public class PersonalizationTerminal {
 
         //To test encryption
         /*String originalString = "EncryptionTest";
+        String key = "1234";
 
-        String encryptedString = AES256.encrypt(originalString);
-        String decryptedString = AES256.decrypt(encryptedString);
+        String encryptedString = AES256.encrypt(originalString, key);
+        String decryptedString = AES256.decrypt(encryptedString, key);
 
         System.out.println(originalString);
         System.out.println(encryptedString);
         System.out.println(decryptedString);
-        */
+         */
+
     }
 }
