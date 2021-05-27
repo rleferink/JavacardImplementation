@@ -84,6 +84,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     CardChannel applet;
 
     public PosTerminal(JFrame parent) {
+        //TODO create certificate
         //TODO set keys in the certificates
         //TODO obtain keys from certificate
         try {
@@ -97,7 +98,7 @@ public class PosTerminal extends JPanel implements ActionListener {
             //set string which needs to be encrypted
             String secretMessage = "1234";
             Cipher encryptCipher = Cipher.getInstance("RSA");
-            encryptCipher.init(Cipher.ENCRYPT_MODE,publicKey);
+            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKey);
 
             //create byte[] to store encrypted message
             byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
@@ -105,7 +106,7 @@ public class PosTerminal extends JPanel implements ActionListener {
 
             //create decrypt cipher
             Cipher decryptCipher = Cipher.getInstance("RSA");
-            decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
+            decryptCipher.init(Cipher.DECRYPT_MODE, publicKey);
 
             //create byte[] to store decrypted message and then into a string
             byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
@@ -116,11 +117,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                 System.out.println("POS terminal: messages are equal");
             };
 
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
-            e.printStackTrace();
-        } catch (IllegalBlockSizeException e) {
-            e.printStackTrace();
-        } catch (BadPaddingException e) {
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
             e.printStackTrace();
         }
 
@@ -384,7 +381,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
         else{
             System.out.println("Counter INCORRECT");
-            //TODO: stop protocol if incorrect
+            return null;
         }
 
         if(received[1] == (byte)1){
@@ -392,7 +389,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
         else if(state == AppUtil.AppMode.SPEND.mode){
             System.out.println("Balance NOT high enough");
-            //TODO: stop protocol if balance not high enough
+            return null;
         }
         return received;
     }
@@ -419,14 +416,14 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
         else{
             System.out.println("Counter INCORRECT");
-            //TODO: stop protocol if incorrect
+            return null;
         }
         if(certificate_card.equals("certificate card")){
             System.out.println("Certificate card CORRECT");
         }
         else{
             System.out.println("certificate INCORRECT");
-            //TODO: stop protocol if incorrect
+            return null;
         }
         return received;
     }

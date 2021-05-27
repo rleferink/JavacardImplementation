@@ -53,7 +53,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             //set string which needs to be encrypted
             String secretMessage = "1234";
             Cipher encryptCipher = Cipher.getInstance("RSA");
-            encryptCipher.init(Cipher.ENCRYPT_MODE,publicKey);
+            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKey);
 
             //create byte[] to store encrypted message
             byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
@@ -61,7 +61,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
             //create decrypt cipher
             Cipher decryptCipher = Cipher.getInstance("RSA");
-            decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
+            decryptCipher.init(Cipher.DECRYPT_MODE, publicKey);
 
             //create byte[] to store decrypted message and then into a string
             byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
