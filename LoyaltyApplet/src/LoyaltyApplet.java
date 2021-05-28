@@ -9,14 +9,13 @@ import javax.sound.midi.SysexMessage;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import javax.crypto.Cipher;
 
 import static javacard.framework.JCSystem.makeTransientByteArray;
 
 public class LoyaltyApplet extends Applet implements ISO7816 {
-
-
     private static final byte X = 0;
     private AppUtil.AppMode currentMode;
 
@@ -32,6 +31,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     final static byte DECREASE_BALANCE = (byte) 0x22;
 
     String card = "certificate card";
+    int cardId = 21;
+
+    //card keeps track of the most recent 100 transactions
+    int lastTransactionIndex = 0;
+    Byte [][] transactions = new Byte[100][4];
 
     public LoyaltyApplet() {
         enteredValue = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
@@ -91,7 +95,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte ins = buffer[OFFSET_INS];
         byte P1 = buffer[OFFSET_P1];
 
-
         /* Ignore the APDU that selects this applet... */
         if (selectingApplet()) {
             return;
@@ -113,7 +116,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    checkAmountAndIncreaseBalance(apdu, buffer);
+                    IncreaseBalance(apdu, buffer, cardId, transactions);
                     System.out.println("");
                 }
                 break;
@@ -126,7 +129,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    checkAmountAndDecreaseBalance(apdu, buffer);
+                    checkAmountAndDecreaseBalance(apdu, buffer, cardId, transactions);
                     System.out.println("");
                 }
                 break;
@@ -171,32 +174,45 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, (short) 30);
     }
 
-    private void checkAmountAndIncreaseBalance(APDU apdu, byte[] buffer){
+    private void IncreaseBalance(APDU apdu, byte[] buffer, int cardId, Byte[][] transactions){
         short le = -1;
         le = apdu.setOutgoing();
-        if (le < 2) {
+        if (le < 3) {
             ISOException.throwIt((short) (SW_WRONG_LENGTH | 4));
         }
 
         short counter = (short) buffer[5];
-        short amount = (short) buffer[6];
+        int terminalId = buffer[6];
+        short amount = (short) buffer[7];
         byte[] yesNo = {(byte)0};
-        System.out.println(amount);
+        System.out.println("Amount: " + amount);
         balance += amount;
-
 
         counter += 1;
         System.out.println("C -> T: " + counter);
         byte[] counterr = {(byte) counter};
-        byte[] send = new byte[counterr.length + yesNo.length];
+        byte[] cardNr = {(byte) cardId};
+        byte[] send = new byte[counterr.length + cardNr.length + yesNo.length];
         System.arraycopy(counterr, 0, send, 0, counterr.length);
-        System.arraycopy(yesNo, 0, send, counterr.length, yesNo.length);
-        apdu.setOutgoingLength((short) 2); // Must be the same as expected length at i4 at the caller.
+        System.arraycopy(cardNr, 0, send, counterr.length, cardNr.length);
+        System.arraycopy(yesNo, 0, send, counterr.length + cardNr.length, yesNo.length);
+        apdu.setOutgoingLength((short) 3); // Must be the same as expected length at i4 at the caller.
         System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) 2);
+        apdu.sendBytes((short) 0, (short) 3);
+
+        //store transaction
+        java.sql.Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
+        transactions[lastTransactionIndex][0] = (byte)0;
+        transactions[lastTransactionIndex][1] = (byte)cardId;
+        transactions[lastTransactionIndex][2] = (byte)terminalId;
+        transactions[lastTransactionIndex][3] = (byte)amount;
+        System.out.println("Transaction " + lastTransactionIndex + " " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
+        lastTransactionIndex+=1;
+
     }
 
-    private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
+    private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer, int cardNr, Byte[][] transactions){
         short le = -1;
         le = apdu.setOutgoing();
         if (le < 2) {
@@ -204,7 +220,8 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
 
         short counter = (short) buffer[5];
-        short amount = (short) buffer[6];
+        int terminalId = buffer[6];
+        short amount = (short) buffer[7];
         byte[] yesNo = {(byte)0};
         System.out.println(amount);
         if(amount <= balance){
@@ -218,13 +235,27 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         counter += 1;
         System.out.println("C -> T: " + counter);
+        //send counter + cardId + yes/no
         byte[] counterr = {(byte) counter};
-        byte[] send = new byte[counterr.length + yesNo.length];
+        byte[] cardId = {(byte) cardNr};
+        byte[] send = new byte[counterr.length + cardId.length + yesNo.length];
         System.arraycopy(counterr, 0, send, 0, counterr.length);
-        System.arraycopy(yesNo, 0, send, counterr.length, yesNo.length);
-        apdu.setOutgoingLength((short) 2); // Must be the same as expected length at i4 at the caller.
+        System.arraycopy(cardId, 0, send, counterr.length, cardId.length);
+        System.arraycopy(yesNo, 0, send, counterr.length + cardId.length, yesNo.length);
+        apdu.setOutgoingLength((short) 3); // Must be the same as expected length at i4 at the caller.
         System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) 2);
+        apdu.sendBytes((short) 0, (short) 3);
+
+        //store transaction
+        //TODO store timestamp in transaction
+        java.sql.Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
+        transactions[lastTransactionIndex][0] = (byte)0;
+        transactions[lastTransactionIndex][1] = (byte)cardNr;
+        transactions[lastTransactionIndex][2] = (byte)terminalId;
+        transactions[lastTransactionIndex][3] = (byte)amount;
+        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
+        lastTransactionIndex+=1;
     }
 
     private void view_balance(APDU apdu, byte[] buffer){
