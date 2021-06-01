@@ -1,5 +1,4 @@
 import javacard.framework.AID;
-import javacard.framework.ISO7816;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -9,19 +8,9 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.*;
-import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.Collections;
-import java.nio.ByteBuffer;
-import java.util.List;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
@@ -29,18 +18,17 @@ import javax.smartcardio.CardTerminal;
 import javax.smartcardio.CardTerminals;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
-import javax.smartcardio.TerminalFactory;
-import javax.sound.midi.SysexMessage;
 import javax.swing.*;
 
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.smartcardio.CardSimulator;
-import javacard.framework.ISOException;
+import javacard.framework.Applet;
 
 import java.math.BigInteger;
 /**
  * POS terminal for the Loyalty Applet.
  **
+ * @author Andrius Kuprys
  * @author Roland Leferink
  * @author Marc van de Werfhorst
  * @author Romy Stähli
@@ -48,6 +36,8 @@ import java.math.BigInteger;
  */
 public class PosTerminal extends JPanel implements ActionListener {
 
+    static PersonalizationTerminal pt;
+    static CardManager cm;
     //private JavaxSmartCardInterface simulatorInterface; // SIM
     private AppUtil.AppMode appMode = AppUtil.AppMode.ADD;
 
@@ -61,20 +51,12 @@ public class PosTerminal extends JPanel implements ActionListener {
     static final String MSG_DISABLED = " -- insert card --  ";
     static final String MSG_INVALID = " -- invalid card -- ";
 
-    static final byte[] CALC_APPLET_AID = { (byte) 0x3B, (byte) 0x29,
-            (byte) 0x63, (byte) 0x61, (byte) 0x6C, (byte) 0x63, (byte) 0x01 };
-    static final String CALC_APPLET_AID_string = "3B2963616C6301";
-
-    static final CommandAPDU SELECT_APDU = new CommandAPDU(
-            (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
-
     String POSTerminal = "certificate POSTerminal";
-    int terminalId = 19;
 
-    //create an array consisting of timestamp, card number, terminalID, amount of points.
-    //terminal keeps track of the most recent 100 transactions
+
     int lastTransactionIndex = 0;
-    Byte [][] transactions = new Byte[100][4];
+    String [] transactions = new String[4];
+    //create an array consisting of timestamp, card number, terminalID, amount of points.
 
     private short enteredValue=0;
 
@@ -83,49 +65,33 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     CardChannel applet;
 
-    public PosTerminal(JFrame parent) {
-        //TODO create certificate
-        //TODO set keys in the certificates
-        //TODO obtain keys from certificate
+    public PosTerminal() {
+        JFrame posFrame = new JFrame(TITLE);
+        Container c = posFrame.getContentPane();
+        c.add(this);
+        posFrame.setResizable(false);
+        posFrame.pack();
+        posFrame.setVisible(true);
 
-        try {
-            //generate key pair
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            generator.initialize(2048);
-            KeyPair pair = generator.generateKeyPair();
-            PrivateKey privateKey = pair.getPrivate();
-            PublicKey publicKey = pair.getPublic();
-
-            //set string which needs to be encrypted
-            String secretMessage = "1234";
-            Cipher encryptCipher = Cipher.getInstance("RSA");
-            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKey);
-
-            //create byte[] to store encrypted message
-            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
-            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
-
-            //create decrypt cipher
-            Cipher decryptCipher = Cipher.getInstance("RSA");
-            decryptCipher.init(Cipher.DECRYPT_MODE, publicKey);
-
-            //create byte[] to store decrypted message and then into a string
-            byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
-            String decryptedMessage = new String(decryptedMessageBytes, StandardCharsets.UTF_8);
-
-            //check if original message is equal to the decrypted message
-            if(secretMessage.equals(decryptedMessage)){
-                System.out.println("POS terminal: messages are equal");
-            };
-
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-        }
-
-        buildGUI(parent);
+        //simulatorInterface = new JavaxSmartCardInterface(); // SIM
+        buildGUI(posFrame);
         setEnabled(false);
-        (new SimulatedCardThread()).start();
+
     }
+
+//    public void InsertCard() {
+//        terminalThread = new SimulatedCardThread1();
+//        terminalThread.start();
+//    }
+//
+//    public void RemoveCard(){
+//        try {
+//            card.disconnect(true);
+//        } catch (CardException e) {
+//            e.printStackTrace();
+//        }
+//        terminalThread.interrupt();
+//    }
 
     void buildGUI(JFrame parent) {
         setLayout(new BorderLayout());
@@ -234,35 +200,21 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     /* Connect the terminal with a simulated smartcard JCardSim
      */
-    class SimulatedCardThread extends Thread {
-        public void run() {
-            // Obtain a CardTerminal
-            CardTerminals cardTerminals = CardTerminalSimulator.terminals("My terminal 1");
-            CardTerminal terminal1 = cardTerminals.getTerminal("My terminal 1");
-
-            // Create simulator and install applet
-            CardSimulator simulator = new CardSimulator();
-            AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
-            // @Andrius: This inserts a card
-            simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
-
-            // Insert Card into "My terminal 1"
-            simulator.assignToTerminal(terminal1);
-
-            try {
-                Card card = terminal1.connect("*");
-
-                applet = card.getBasicChannel();
-                ResponseAPDU resp = applet.transmit(SELECT_APDU);
-                if (resp.getSW() != 0x9000) {
-                    throw new Exception("Select failed");
-                }
-                setEnabled(true);
-            } catch (Exception e) {
-                System.err.println("Card status problem!");
-            }
-        }
-    }
+//    class SimulatedCardThread1 extends Thread {
+//        public void run() {
+//            try {
+//                card = terminal1.connect("*");
+//                applet = card.getBasicChannel();
+//                ResponseAPDU resp = applet.transmit(SELECT_APDU);
+//                if (resp.getSW() != 0x9000) {
+//                    throw new Exception("Select failed");
+//                }
+//                setEnabled(true);
+//            } catch (Exception e) {
+//                System.err.println("Card status problem!");
+//            }
+//        }
+//    }
 
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -278,22 +230,19 @@ public class PosTerminal extends JPanel implements ActionListener {
                         case ADD:
                             //step 3-6 certificates
                             received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.ADD.mode);
-
                             //step 12 get amount
                             amount = enteredValue;
                             System.out.println("Amount entered: " + amount);
-
                             //step 13 increase balance on the card
-                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.ADD.mode, transactions);
-
+                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.ADD.mode);
                             //step 14 store transaction
                             //TODO: Storing the transaction if we want to do it
-                            //store_transaction(cardId, timestamp, terminalID, amount)
 
                             setText("Remove card");
                             break;
                         case SPEND:
                             System.out.println("Terminal: spending points");
+
 
                             //step 3: amount to spend is entered
                             amount = enteredValue;
@@ -302,15 +251,14 @@ public class PosTerminal extends JPanel implements ActionListener {
                             //step 4: send certificate
                             received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.SPEND.mode);
 
-                            //step 12: any revoked transactions in the database?
+                            //step 12: any revoked transactions?
                             //TODO: !!!!!!!
 
                             //step 13: is balance >= n? | counter +=1
-                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.SPEND.mode, transactions);
+                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.SPEND.mode);
 
                             //step 16: store transaction?
                             //TODO if we still think this is useful
-                            //store_transaction(cardId, timestamp, terminalID, amount)
 
                             setText("Remove card");
                             System.out.println("End spending protocol");
@@ -359,16 +307,14 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
     }
 
-    byte[] changeBalance(byte[] counter, byte[] received, short amount, byte state, Byte[][] transactions){
+    byte[] changeBalance(byte[] counter, byte[] received, short amount, byte state){
         counter[0] = (byte) (received[0] + 1);
         System.out.println("T -> C: balance >= amount? | " + (counter[0]));
         byte[] amountArray = {(byte) amount};
-        byte[] terminalNr = {(byte) terminalId};
-        byte[] balance_check = new byte[counter.length + terminalNr.length + amountArray.length];
+        byte[] balance_check = new byte[counter.length + amountArray.length];
         System.arraycopy(counter, 0, balance_check, 0, counter.length);
-        System.arraycopy(terminalNr, 0, balance_check, counter.length, terminalNr.length);
-        System.arraycopy(amountArray, 0, balance_check, counter.length + terminalNr.length, amountArray.length);
-        CommandAPDU apdu_amount_check = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_AMOUNT_CHECK.mode, 0, balance_check, 3);
+        System.arraycopy(amountArray, 0, balance_check, counter.length, amountArray.length);
+        CommandAPDU apdu_amount_check = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_AMOUNT_CHECK.mode, 0, balance_check, 2);
 
         ResponseAPDU res_amount_check = null;
         try {
@@ -379,39 +325,21 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
 
         received = res_amount_check.getData();
-        //received[0] = counter
-        //received[1] = cardId
-        //received [2] = yes/no
-
         if(received[0] == counter[0] + 1){
             System.out.println("Counter CORRECT");
         }
         else{
             System.out.println("Counter INCORRECT");
-            return null;
+            //TODO: stop protocol if incorrect
         }
 
-        int cardId = received[1];
-
-        if(received[2] == (byte)1){
+        if(received[1] == (byte)1){
             System.out.println("Balance high enough");
         }
         else if(state == AppUtil.AppMode.SPEND.mode){
             System.out.println("Balance NOT high enough");
-            return null;
+            //TODO: stop protocol if balance not high enough
         }
-
-        //store transaction
-        Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        //TODO store timestamp in transaction
-        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
-        transactions[lastTransactionIndex][0] = (byte)0;
-        transactions[lastTransactionIndex][1] = (byte)cardId;
-        transactions[lastTransactionIndex][2] = (byte)terminalId;
-        transactions[lastTransactionIndex][3] = (byte)amount;
-        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
-        lastTransactionIndex+=1;
-
         return received;
     }
 
@@ -437,20 +365,20 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
         else{
             System.out.println("Counter INCORRECT");
-            return null;
+            //TODO: stop protocol if incorrect
         }
         if(certificate_card.equals("certificate card")){
             System.out.println("Certificate card CORRECT");
         }
         else{
             System.out.println("certificate INCORRECT");
-            return null;
+            //TODO: stop protocol if incorrect
         }
         return received;
     }
 
     ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
-        ResponseAPDU rapdu = applet.transmit(capdu);
+        ResponseAPDU rapdu = CardManager.applet.transmit(capdu);
 
         byte[] data = rapdu.getData();
         int sw = rapdu.getSW();
@@ -553,13 +481,8 @@ public class PosTerminal extends JPanel implements ActionListener {
     }
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame(TITLE);
-        Container c = frame.getContentPane();
-        PosTerminal panel = new PosTerminal(frame);
-        c.add(panel);
-        frame.setResizable(false);
-        frame.pack();
-        frame.setVisible(true);
+
+
     }
 }
 

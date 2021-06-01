@@ -1,21 +1,16 @@
 import javacard.framework.*;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.CardException;
 import javax.sound.midi.SysexMessage;
 
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.sql.Timestamp;
 import java.util.Arrays;
-import javax.crypto.Cipher;
 
 import static javacard.framework.JCSystem.makeTransientByteArray;
 
 public class LoyaltyApplet extends Applet implements ISO7816 {
+
+
     private static final byte X = 0;
     private AppUtil.AppMode currentMode;
 
@@ -31,11 +26,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     final static byte DECREASE_BALANCE = (byte) 0x22;
 
     String card = "certificate card";
-    int cardId = 21;
-
-    //card keeps track of the most recent 100 transactions
-    int lastTransactionIndex = 0;
-    Byte [][] transactions = new Byte[100][4];
 
     public LoyaltyApplet() {
         enteredValue = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
@@ -43,46 +33,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         lastKeyWasDigit = JCSystem.makeTransientBooleanArray((short) 1, JCSystem.CLEAR_ON_RESET);
         m = 0;
         register();
-
-        //TODO set keys in the certificates
-        //TODO obtain keys from certificate
-        try {
-            //generate key pair
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            generator.initialize(2048);
-            KeyPair pair = generator.generateKeyPair();
-            PrivateKey privateKey = pair.getPrivate();
-            PublicKey publicKey = pair.getPublic();
-
-            //set string which needs to be encrypted
-            String secretMessage = "1234";
-            Cipher encryptCipher = Cipher.getInstance("RSA");
-            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKey);
-
-            //create byte[] to store encrypted message
-            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
-            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
-
-            //create decrypt cipher
-            Cipher decryptCipher = Cipher.getInstance("RSA");
-            decryptCipher.init(Cipher.DECRYPT_MODE, publicKey);
-
-            //create byte[] to store decrypted message and then into a string
-            byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
-            String decryptedMessage = new String(decryptedMessageBytes, StandardCharsets.UTF_8);
-
-            //check if original message is equal to the decrypted message
-            if(secretMessage.equals(decryptedMessage)){
-                System.out.println("Loyalty Applet: messages are equal");
-            };
-
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
-            e.printStackTrace();
-        } catch (IllegalBlockSizeException e) {
-            e.printStackTrace();
-        } catch (BadPaddingException e) {
-            e.printStackTrace();
-        }
     }
 
     public static void install(byte[] buffer, short offset, byte length) throws SystemException {
@@ -94,6 +44,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte[] buffer = apdu.getBuffer();
         byte ins = buffer[OFFSET_INS];
         byte P1 = buffer[OFFSET_P1];
+
 
         /* Ignore the APDU that selects this applet... */
         if (selectingApplet()) {
@@ -116,7 +67,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    IncreaseBalance(apdu, buffer, cardId, transactions);
+                    checkAmountAndIncreaseBalance(apdu, buffer);
                     System.out.println("");
                 }
                 break;
@@ -129,7 +80,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    checkAmountAndDecreaseBalance(apdu, buffer, cardId, transactions);
+                    checkAmountAndDecreaseBalance(apdu, buffer);
                     System.out.println("");
                 }
                 break;
@@ -174,45 +125,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, (short) 30);
     }
 
-    private void IncreaseBalance(APDU apdu, byte[] buffer, int cardId, Byte[][] transactions){
-        short le = -1;
-        le = apdu.setOutgoing();
-        if (le < 3) {
-            ISOException.throwIt((short) (SW_WRONG_LENGTH | 4));
-        }
-
-        short counter = (short) buffer[5];
-        int terminalId = buffer[6];
-        short amount = (short) buffer[7];
-        byte[] yesNo = {(byte)0};
-        System.out.println("Amount: " + amount);
-        balance += amount;
-
-        counter += 1;
-        System.out.println("C -> T: " + counter);
-        byte[] counterr = {(byte) counter};
-        byte[] cardNr = {(byte) cardId};
-        byte[] send = new byte[counterr.length + cardNr.length + yesNo.length];
-        System.arraycopy(counterr, 0, send, 0, counterr.length);
-        System.arraycopy(cardNr, 0, send, counterr.length, cardNr.length);
-        System.arraycopy(yesNo, 0, send, counterr.length + cardNr.length, yesNo.length);
-        apdu.setOutgoingLength((short) 3); // Must be the same as expected length at i4 at the caller.
-        System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) 3);
-
-        //store transaction
-        java.sql.Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
-        transactions[lastTransactionIndex][0] = (byte)0;
-        transactions[lastTransactionIndex][1] = (byte)cardId;
-        transactions[lastTransactionIndex][2] = (byte)terminalId;
-        transactions[lastTransactionIndex][3] = (byte)amount;
-        System.out.println("Transaction " + lastTransactionIndex + " " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
-        lastTransactionIndex+=1;
-
-    }
-
-    private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer, int cardNr, Byte[][] transactions){
+    private void checkAmountAndIncreaseBalance(APDU apdu, byte[] buffer){
         short le = -1;
         le = apdu.setOutgoing();
         if (le < 2) {
@@ -220,8 +133,33 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
 
         short counter = (short) buffer[5];
-        int terminalId = buffer[6];
-        short amount = (short) buffer[7];
+        short amount = (short) buffer[6];
+        byte[] yesNo = {(byte)0};
+        System.out.println(amount);
+        JCSystem.beginTransaction(); // Make Persistent Transaction
+        balance += amount;
+        JCSystem.commitTransaction();
+
+        counter += 1;
+        System.out.println("C -> T: " + counter);
+        byte[] counterr = {(byte) counter};
+        byte[] send = new byte[counterr.length + yesNo.length];
+        System.arraycopy(counterr, 0, send, 0, counterr.length);
+        System.arraycopy(yesNo, 0, send, counterr.length, yesNo.length);
+        apdu.setOutgoingLength((short) 2); // Must be the same as expected length at i4 at the caller.
+        System.arraycopy(send, 0, buffer, 0, send.length);
+        apdu.sendBytes((short) 0, (short) 2);
+    }
+
+    private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
+        short le = -1;
+        le = apdu.setOutgoing();
+        if (le < 2) {
+            ISOException.throwIt((short) (SW_WRONG_LENGTH | 4));
+        }
+
+        short counter = (short) buffer[5];
+        short amount = (short) buffer[6];
         byte[] yesNo = {(byte)0};
         System.out.println(amount);
         if(amount <= balance){
@@ -235,27 +173,13 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         counter += 1;
         System.out.println("C -> T: " + counter);
-        //send counter + cardId + yes/no
         byte[] counterr = {(byte) counter};
-        byte[] cardId = {(byte) cardNr};
-        byte[] send = new byte[counterr.length + cardId.length + yesNo.length];
+        byte[] send = new byte[counterr.length + yesNo.length];
         System.arraycopy(counterr, 0, send, 0, counterr.length);
-        System.arraycopy(cardId, 0, send, counterr.length, cardId.length);
-        System.arraycopy(yesNo, 0, send, counterr.length + cardId.length, yesNo.length);
-        apdu.setOutgoingLength((short) 3); // Must be the same as expected length at i4 at the caller.
+        System.arraycopy(yesNo, 0, send, counterr.length, yesNo.length);
+        apdu.setOutgoingLength((short) 2); // Must be the same as expected length at i4 at the caller.
         System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) 3);
-
-        //store transaction
-        //TODO store timestamp in transaction
-        java.sql.Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
-        transactions[lastTransactionIndex][0] = (byte)0;
-        transactions[lastTransactionIndex][1] = (byte)cardNr;
-        transactions[lastTransactionIndex][2] = (byte)terminalId;
-        transactions[lastTransactionIndex][3] = (byte)amount;
-        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
-        lastTransactionIndex+=1;
+        apdu.sendBytes((short) 0, (short) 2);
     }
 
     private void view_balance(APDU apdu, byte[] buffer){
