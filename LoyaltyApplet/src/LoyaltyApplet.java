@@ -186,7 +186,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         short amount = (short) buffer[7];
         byte[] yesNo = {(byte)0};
         System.out.println("Amount: " + amount);
+        JCSystem.beginTransaction(); // Make Persistent Transaction
         balance += amount;
+        JCSystem.commitTransaction();
 
         counter += 1;
         System.out.println("C -> T: " + counter);

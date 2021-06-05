@@ -14,9 +14,6 @@ import java.security.*;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.Collections;
-import java.nio.ByteBuffer;
-import java.util.List;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -29,13 +26,11 @@ import javax.smartcardio.CardTerminal;
 import javax.smartcardio.CardTerminals;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
-import javax.smartcardio.TerminalFactory;
-import javax.sound.midi.SysexMessage;
 import javax.swing.*;
 
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.smartcardio.CardSimulator;
-import javacard.framework.ISOException;
+import javacard.framework.Applet;
 
 import java.math.BigInteger;
 /**
@@ -48,6 +43,8 @@ import java.math.BigInteger;
  */
 public class PosTerminal extends JPanel implements ActionListener {
 
+    static PersonalizationTerminal pt;
+    static CardManager cm;
     //private JavaxSmartCardInterface simulatorInterface; // SIM
     private AppUtil.AppMode appMode = AppUtil.AppMode.ADD;
 
@@ -84,6 +81,13 @@ public class PosTerminal extends JPanel implements ActionListener {
     CardChannel applet;
 
     public PosTerminal(JFrame parent) {
+        JFrame posFrame = new JFrame(TITLE);
+        Container c = posFrame.getContentPane();
+        c.add(this);
+        posFrame.setResizable(false);
+        posFrame.pack();
+        posFrame.setVisible(true);
+
         //TODO create certificate
         //TODO set keys in the certificates
         //TODO obtain keys from certificate
