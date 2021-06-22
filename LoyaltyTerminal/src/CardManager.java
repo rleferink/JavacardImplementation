@@ -143,8 +143,9 @@ public class CardManager extends JPanel implements ActionListener {
         frame.pack();
         frame.setVisible(true);
 
-        //TODO: deze regel hieronder uit comment
-        //posTerminal = new PosTerminal();
+        //hieronder een frame maken om mee te geven aan de posTerminal
+        JFrame posFrame = new JFrame();
+        posTerminal = new PosTerminal(posFrame);
         personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"));
 
         personalizationTerminal.revalidate();
