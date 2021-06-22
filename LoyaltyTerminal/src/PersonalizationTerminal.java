@@ -100,27 +100,8 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         display.setBackground(Color.darkGray);
         display.setForeground(Color.green);
         add(display, BorderLayout.NORTH);
-        keypad = new JPanel(new GridLayout(4, 5));
-        key("1", Color.black);
-        key("2", Color.black);
-        key("3", Color.black);
-        key("X", Color.red);
-        key("Add", Color.red);
-        key("4", Color.black);
-        key("5", Color.black);
-        key("6", Color.black);
-        key("<", Color.orange);
-        key("Spend", Color.red);
-        key("7", Color.black);
-        key("8", Color.black);
-        key("9", Color.black);
+        keypad = new JPanel(new GridLayout(1, 1));
         key("OK", Color.green);
-        key("View", Color.red);
-        key(null, null);
-        key("0", Color.black);
-        key(null, null);
-        key(null, null);
-        key(null, null);
         add(keypad, BorderLayout.CENTER);
         parent.addWindowListener(new CloseEventListener());
     }
