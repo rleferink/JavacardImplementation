@@ -2,6 +2,10 @@ import com.licel.jcardsim.smartcardio.CardSimulator;
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import javacard.framework.AID;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.*;
 import javax.swing.*;
 import java.awt.*;
@@ -10,6 +14,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -131,7 +137,7 @@ public class CardManager extends JPanel implements ActionListener {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
         JFrame frame = new JFrame("Card Manager");
         frame.setPreferredSize(PREFERRED_SIZE);
@@ -143,10 +149,31 @@ public class CardManager extends JPanel implements ActionListener {
         frame.pack();
         frame.setVisible(true);
 
+        //generate key pair for CA
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+
+        KeyPair pairCA = generator.generateKeyPair();
+        PrivateKey privateKeyCA = pairCA.getPrivate();
+        PublicKey publicKeyCA = pairCA.getPublic();
+
+        KeyPair pairPosTerminal = generator.generateKeyPair();
+        PrivateKey privateKeyPOS = pairPosTerminal.getPrivate();
+        PublicKey publicKeyPOS = pairPosTerminal.getPublic();
+        String posID = "1";
+        String issuerName = "CA";
+        String expiryDate = "01-01-2022";
+
+        String secretMessage = posID + issuerName + expiryDate + publicKeyPOS;
+        Cipher encryptCipher = Cipher.getInstance("RSA");
+        encryptCipher.init(Cipher.ENCRYPT_MODE,privateKeyCA);
+        byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
+        byte[] certificatePOS = encryptCipher.doFinal(secretMessageBytes);
+
         //hieronder een frame maken om mee te geven aan de posTerminal
         JFrame posFrame = new JFrame();
-        posTerminal = new PosTerminal(posFrame);
-        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"));
+        posTerminal = new PosTerminal(posFrame, publicKeyCA, pairPosTerminal, certificatePOS);
+        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), pairCA);
 
         personalizationTerminal.revalidate();
         posTerminal.revalidate();

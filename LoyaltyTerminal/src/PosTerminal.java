@@ -80,7 +80,9 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     CardChannel applet;
 
-    public PosTerminal(JFrame parent) {
+    byte[] certificatePOS;
+
+    public PosTerminal(JFrame parent, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS) {
         JFrame posFrame = new JFrame(TITLE);
         Container c = posFrame.getContentPane();
         c.add(this);
@@ -88,43 +90,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         posFrame.pack();
         posFrame.setVisible(true);
 
-        //TODO create certificate
-        //TODO set keys in the certificates
-        //TODO obtain keys from certificate
-
-        try {
-            //generate key pair
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            generator.initialize(2048);
-            KeyPair pair = generator.generateKeyPair();
-            PrivateKey privateKey = pair.getPrivate();
-            PublicKey publicKey = pair.getPublic();
-
-            //set string which needs to be encrypted
-            String secretMessage = "1234";
-            Cipher encryptCipher = Cipher.getInstance("RSA");
-            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKey);
-
-            //create byte[] to store encrypted message
-            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
-            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
-
-            //create decrypt cipher
-            Cipher decryptCipher = Cipher.getInstance("RSA");
-            decryptCipher.init(Cipher.DECRYPT_MODE, publicKey);
-
-            //create byte[] to store decrypted message and then into a string
-            byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
-            String decryptedMessage = new String(decryptedMessageBytes, StandardCharsets.UTF_8);
-
-            //check if original message is equal to the decrypted message
-            if(secretMessage.equals(decryptedMessage)){
-                System.out.println("POS terminal: messages are equal");
-            };
-
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-        }
+        this.certificatePOS = certificatePOS;
 
         buildGUI(parent);
         setEnabled(false);
@@ -420,10 +386,9 @@ public class PosTerminal extends JPanel implements ActionListener {
     }
 
     byte[] sendAndCheckCertificate(byte[] counter, byte[] received, byte state){
-        byte[] certificate = POSTerminal.getBytes();
-        byte[] send = new byte[counter.length + certificate.length];
+        byte[] send = new byte[counter.length + certificatePOS.length];
         System.arraycopy(counter, 0, send, 0, counter.length);
-        System.arraycopy(certificate, 0, send, counter.length, certificate.length);
+        System.arraycopy(certificatePOS, 0, send, counter.length, certificatePOS.length);
         CommandAPDU apdu_certificate = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
         //step 6: receive certificate and counter = 1
         ResponseAPDU res_certificate = null;
@@ -515,55 +480,16 @@ public class PosTerminal extends JPanel implements ActionListener {
         return PREFERRED_SIZE;
     }
 
-    void spendingPoints() {
-        //step 3: enter amount of points to spend, now set to 100
-        //int points = 100;
-
-        //step 8: t -> c: nonce_1 (ins = 0x20 = send certificate and nonce)
-        CommandAPDU apdu = new CommandAPDU((byte)0xb0, (byte) 0x20, 0,0,0);
-        try {
-            ResponseAPDU resp = applet.transmit(apdu);
-            byte[] data = resp.getData();
-            if(data.length == 0){
-                System.out.println("Received buffer is empty");
-            } else{
-                System.out.println("Received buffer: " + data + "\nlength: " + data.length);
-            }
-        } catch (CardException e) {
-            return;
-        }
-
-        //step 9: t -> c: nonce_1 | online/offline | nonce_2
-
-        //step 11: c -> t: nonce_2
-
-        //step 12: t -> d: any revoked transaction?
-
-        //step 13: d -> t: yes/no
-
-        //step 15: t -> c: balance at least n?
-
-        //step 16: c -> t: yes/no | nonce_3
-
-        //step 17: if yes: t -> c: decrease with n points
-
-        //step 19: c -> t: balance decreased
-
-        //step 20: t -> u: card can be removed
-
-        //step 24: t -> d: decrease with n points | timestamp
-
-        //step 26: d -> t: balance is decreased
-    }
-
     public static void main(String[] args) {
-        JFrame frame = new JFrame(TITLE);
+        /*JFrame frame = new JFrame(TITLE);
         Container c = frame.getContentPane();
         PosTerminal panel = new PosTerminal(frame);
         c.add(panel);
         frame.setResizable(false);
         frame.pack();
         frame.setVisible(true);
+
+         */
     }
 }
 

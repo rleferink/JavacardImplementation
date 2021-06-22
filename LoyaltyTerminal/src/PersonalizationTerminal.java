@@ -2,6 +2,10 @@ import com.licel.jcardsim.smartcardio.CardSimulator;
 import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import javacard.framework.AID;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.*;
 import javax.swing.*;
 import java.awt.*;
@@ -9,6 +13,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
+import java.util.Random;
+
 
 public class PersonalizationTerminal extends JPanel implements ActionListener {
     JTextField display;
@@ -35,7 +43,9 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     CardSimulator simulator;
     CardTerminal terminal2;
 
-    public PersonalizationTerminal(CardTerminal personalization_terminal){
+    KeyPair pairCA;
+
+    public PersonalizationTerminal(CardTerminal personalization_terminal, KeyPair pairCA){
         System.out.println("Start Personalization");
 
         JFrame ptFrame = new JFrame("Personalisation Terminal");
@@ -47,6 +57,8 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         ptFrame.pack();
         ptFrame.setVisible(true);
 
+        this.pairCA = pairCA;
+
         //simulatorInterface = new JavaxSmartCardInterface(); // SIM
         buildGUI(ptFrame);
         setEnabled(false);
@@ -56,12 +68,14 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         // Create simulator and install applet
         simulator = new CardSimulator();
         AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
-        // @Andrius: This inserts a card
+        // This inserts a card
         simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
-
-        // Insert Card into "My terminal 1"
         simulator.assignToTerminal(terminal2);
+
+        //TODO obtain keys from certificate
+
     }
+
 
     public void setEnabled(boolean b) {
         super.setEnabled(b);
@@ -120,7 +134,29 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        try {
+            //generate key pair for Card
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            KeyPair pairCard = generator.generateKeyPair();
+            PrivateKey privateKeyCA = pairCA.getPrivate();
+            PublicKey publicKeyCA = pairCA.getPublic();
+            PrivateKey privateKeyCard = pairCard.getPrivate();
+            PublicKey publicKeyCard = pairCard.getPublic();
+            String cardID = "1";
+            String issuerName = "CA";
+            String expiryDate = "01-01-2022";
+            Random authenticationCode = new Random();
 
+            String secretMessage = cardID + issuerName + expiryDate + publicKeyCard;
+            Cipher encryptCipher = Cipher.getInstance("RSA");
+            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKeyCA);
+            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
+            byte[] certificateCard = encryptCipher.doFinal(secretMessageBytes);
+            //TODO certificate naar LoyaltyApplet
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
+            ex.printStackTrace();
+        }
     }
 
     class CloseEventListener extends WindowAdapter {
@@ -145,3 +181,27 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         }
     }
 }
+
+//set string which needs to be encrypted
+            /*
+            String secretMessage = "1234";
+            Cipher encryptCipher = Cipher.getInstance("RSA");
+            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKeyCA);
+
+            //create byte[] to store encrypted message
+            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
+            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
+
+            //create decrypt cipher
+            Cipher decryptCipher = Cipher.getInstance("RSA");
+            decryptCipher.init(Cipher.DECRYPT_MODE, publicKeyCA);
+
+            //create byte[] to store decrypted message and then into a string
+            byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
+            String decryptedMessage = new String(decryptedMessageBytes, StandardCharsets.UTF_8);
+
+            //check if original message is equal to the decrypted message
+            if(secretMessage.equals(decryptedMessage)){
+                System.out.println("Loyalty Applet: messages are equal");
+            };
+             */
