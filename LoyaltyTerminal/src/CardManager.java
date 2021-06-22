@@ -29,9 +29,6 @@ public class CardManager extends JPanel implements ActionListener {
     static final Point PREFERRED_LOCATION = new Point(0, 380);
     static final Font FONT = new Font("Monospaced", Font.BOLD, 24);
     static final int DISPLAY_WIDTH = 20;
-    public Card[] Cards = new Card[10];
-    static PosTerminal posTerminal;
-    static PersonalizationTerminal personalizationTerminal;
 
     static final byte[] CALC_APPLET_AID = { (byte) 0x3B, (byte) 0x29,
             (byte) 0x63, (byte) 0x61, (byte) 0x6C, (byte) 0x63, (byte) 0x01 };
@@ -39,17 +36,19 @@ public class CardManager extends JPanel implements ActionListener {
     static final CommandAPDU SELECT_APDU = new CommandAPDU(
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
 
+    boolean active = false;
 
+    static PosTerminal posTerminal;
+    static PersonalizationTerminal personalizationTerminal;
+    Card card;
     // Obtain a CardTerminal
     static CardTerminals cardTerminals = CardTerminalSimulator.terminals("POS Terminal", "Personalization Terminal");
-    Card card;
 
-    Thread terminalThread;
     CardSimulator simulator;
     CardTerminal terminal1 = cardTerminals.getTerminal("POS Terminal");
     CardTerminal terminal2 = cardTerminals.getTerminal("Personalization Terminal");
 
-    public CardManager(JFrame frame){
+    public CardManager(JFrame frame) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         buildGUI(frame);
         setEnabled(true);
         // Create simulator and install applet
@@ -57,6 +56,29 @@ public class CardManager extends JPanel implements ActionListener {
         AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
         // @Andrius: This inserts a card
         simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
+
+        //Create generator for keypairs
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+
+        //generate key pair for CA
+        KeyPair pairCA = generator.generateKeyPair();
+        PrivateKey privateKeyCA = pairCA.getPrivate();
+        PublicKey publicKeyCA = pairCA.getPublic();
+
+        //generate key pair and certificate for POS Terminal
+        KeyPair pairPosTerminal = generator.generateKeyPair();
+        PublicKey publicKeyPOS = pairPosTerminal.getPublic();
+        Certificate c = new Certificate("POS1", "CA", "01-01-2022", publicKeyPOS);
+        byte[] certificatePOS = c.getCertificate(privateKeyCA);
+
+        //hieronder een frame maken om mee te geven aan de posTerminal
+        JFrame posFrame = new JFrame();
+        posTerminal = new PosTerminal(posFrame, publicKeyCA, pairPosTerminal, certificatePOS);
+        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), pairCA);
+
+        personalizationTerminal.revalidate();
+        posTerminal.revalidate();
     }
 
     void buildGUI(JFrame parent) {
@@ -102,12 +124,18 @@ public class CardManager extends JPanel implements ActionListener {
 
                 if (c=="Personalize"){
                     // Insert Card into "Personalization Terminal"
-                    //simulator.assignToTerminal(terminal2);
+                    simulator.assignToTerminal(terminal2);
+                    if (active){
+                        posTerminal.setEnabled(false);
+                    }
                     card = terminal2.connect("*");
                     personalizationTerminal.setEnabled(true);
                 }
                 else if (c=="POS Terminal"){
                     // Insert Card into "POS terminal"
+                    if (!active){
+                        personalizationTerminal.setEnabled(false);
+                    }
                     simulator.assignToTerminal(terminal1);
                     card = terminal1.connect("*");
                     posTerminal.setEnabled(true);
@@ -138,7 +166,6 @@ public class CardManager extends JPanel implements ActionListener {
     }
 
     public static void main(String[] args) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-
         JFrame frame = new JFrame("Card Manager");
         frame.setPreferredSize(PREFERRED_SIZE);
         frame.setLocation(PREFERRED_LOCATION);
@@ -148,35 +175,5 @@ public class CardManager extends JPanel implements ActionListener {
         frame.setResizable(false);
         frame.pack();
         frame.setVisible(true);
-
-        //generate key pair for CA
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-
-        KeyPair pairCA = generator.generateKeyPair();
-        PrivateKey privateKeyCA = pairCA.getPrivate();
-        PublicKey publicKeyCA = pairCA.getPublic();
-
-        KeyPair pairPosTerminal = generator.generateKeyPair();
-        PrivateKey privateKeyPOS = pairPosTerminal.getPrivate();
-        PublicKey publicKeyPOS = pairPosTerminal.getPublic();
-        String posID = "1";
-        String issuerName = "CA";
-        String expiryDate = "01-01-2022";
-
-        String secretMessage = posID + issuerName + expiryDate + publicKeyPOS;
-        Cipher encryptCipher = Cipher.getInstance("RSA");
-        encryptCipher.init(Cipher.ENCRYPT_MODE,privateKeyCA);
-        byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
-        byte[] certificatePOS = encryptCipher.doFinal(secretMessageBytes);
-
-        //hieronder een frame maken om mee te geven aan de posTerminal
-        JFrame posFrame = new JFrame();
-        posTerminal = new PosTerminal(posFrame, publicKeyCA, pairPosTerminal, certificatePOS);
-        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), pairCA);
-
-        personalizationTerminal.revalidate();
-        posTerminal.revalidate();
-
     }
 }

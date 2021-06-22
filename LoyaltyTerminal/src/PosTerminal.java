@@ -80,7 +80,9 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     CardChannel applet;
 
-    byte[] certificatePOS;
+    static byte[] certificatePOS;
+    static PublicKey publicKeyCA;
+    static KeyPair pairPosTerminal;
 
     public PosTerminal(JFrame parent, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS) {
         JFrame posFrame = new JFrame(TITLE);
@@ -91,10 +93,12 @@ public class PosTerminal extends JPanel implements ActionListener {
         posFrame.setVisible(true);
 
         this.certificatePOS = certificatePOS;
+        this.publicKeyCA = publicKeyCA;
+        this.pairPosTerminal = pairPosTerminal;
 
         buildGUI(parent);
         setEnabled(false);
-        (new SimulatedCardThread()).start();
+        //(new SimulatedCardThread()).start();
     }
 
     void buildGUI(JFrame parent) {
@@ -204,7 +208,7 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     /* Connect the terminal with a simulated smartcard JCardSim
      */
-    class SimulatedCardThread extends Thread {
+    /*class SimulatedCardThread extends Thread {
         public void run() {
             // Obtain a CardTerminal
             CardTerminals cardTerminals = CardTerminalSimulator.terminals("My terminal 1");
@@ -232,7 +236,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                 System.err.println("Card status problem!");
             }
         }
-    }
+    }*/
 
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -480,16 +484,16 @@ public class PosTerminal extends JPanel implements ActionListener {
         return PREFERRED_SIZE;
     }
 
-    public static void main(String[] args) {
-        /*JFrame frame = new JFrame(TITLE);
+    public void main(String[] args) {
+        JFrame frame = new JFrame(TITLE);
         Container c = frame.getContentPane();
-        PosTerminal panel = new PosTerminal(frame);
+        PosTerminal panel = new PosTerminal(frame, publicKeyCA, this.pairPosTerminal, this.certificatePOS);
         c.add(panel);
         frame.setResizable(false);
         frame.pack();
         frame.setVisible(true);
 
-         */
+
     }
 }
 
