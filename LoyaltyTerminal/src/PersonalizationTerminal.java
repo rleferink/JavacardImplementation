@@ -157,23 +157,30 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     }
 
     void sendInfoToCard(String cardID, Certificate certificateCard, KeyPair keyPair){
+        PublicKey publicKey = keyPair.getPublic();
+        PrivateKey privateKey = keyPair.getPrivate();
+
         byte[] cardIDBytes = cardID.getBytes(StandardCharsets.UTF_8);
         byte[] IDLength = BigInteger.valueOf(cardIDBytes.length).toByteArray();
         byte[] certificateBytes = certificateCard.getCertificate();
         byte[] certLength = BigInteger.valueOf(certificateBytes.length).toByteArray();
-        byte[] keyPairBytes = keyPair.toString().getBytes(StandardCharsets.UTF_8);
-        byte[] pairLength = BigInteger.valueOf(keyPairBytes.length).toByteArray();
-        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + keyPairBytes.length;
+        byte[] pubKeyBytes = publicKey.getEncoded();
+        byte[] pubKeyLength = BigInteger.valueOf(pubKeyBytes.length).toByteArray();
+        byte[] privKeyBytes = privateKey.getEncoded();
+        byte[] privKeyLength = BigInteger.valueOf(privKeyBytes.length).toByteArray();
+        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8 + privKeyBytes.length;
 
         byte[] send = new byte[lengthMessage];
         System.arraycopy(IDLength, 0, send, 0, IDLength.length);
         System.arraycopy(cardIDBytes, 0, send, 8, cardIDBytes.length);
         System.arraycopy(certLength, 0, send, 8 + cardIDBytes.length, certLength.length);
         System.arraycopy(certificateBytes, 0, send, 8 + cardIDBytes.length + 8, certificateBytes.length);
-        System.arraycopy(pairLength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length, pairLength.length);
-        System.arraycopy(keyPairBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8, keyPairBytes.length);
+        System.arraycopy(pubKeyLength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length, pubKeyLength.length);
+        System.arraycopy(pubKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8, pubKeyBytes.length);
+        System.arraycopy(privKeyLength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length, privKeyLength.length);
+        System.arraycopy(privKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8, privKeyBytes.length);
 
-        CommandAPDU apdu_sendInfo = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, 0, 0, send);
+        CommandAPDU apdu_sendInfo = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, 0, 0, send, 1);
         ResponseAPDU apdu_res = null;
         try {
             apdu_res = sendCommandAPDU(apdu_sendInfo);
@@ -182,39 +189,14 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             e.printStackTrace();
         }
 
-
-
-        /*byte[] send = new byte[counter.length + certificatePOS.length];
-        System.arraycopy(counter, 0, send, 0, counter.length);
-        System.arraycopy(certificatePOS, 0, send, counter.length, certificatePOS.length);
-        CommandAPDU apdu_certificate = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
-        //step 6: receive certificate and counter = 1
-        ResponseAPDU res_certificate = null;
-        try {
-            res_certificate = sendCommandAPDU(apdu_certificate);
-        } catch (CardException e) {
-            System.out.println((MSG_ERROR));
-            e.printStackTrace();
-        }
-        received = res_certificate.getData();
-        short buffer_size = (short) received.length;
-        //TODO: Change to accommodate new certificate
-        String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size-13));
-        if(received[0] == counter[0] + 1){
-            System.out.println("Counter CORRECT");
-        }
-        else{
-            System.out.println("Counter INCORRECT");
-            return null;
-        }
-        if(certificate_card.equals("certificate card")){
-            System.out.println("Certificate card CORRECT");
-        }
-        else{
-            System.out.println("certificate INCORRECT");
-            return null;
-        }
-        return received;*/
+        byte[] response = apdu_res.getData();
+        System.out.println(response.length);
+        System.out.println(response);
+        /*if(response[0] == 0){
+            setText("Card is already personalized");
+        } else {
+            setText("Personalization is done");
+        }*/
     }
 
     ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
@@ -223,6 +205,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         int sw = rapdu.getSW();
         if (sw != 0x9000) {
             setText(MSG_ERROR);
+            System.out.println(sw);
         }
 
         return rapdu;

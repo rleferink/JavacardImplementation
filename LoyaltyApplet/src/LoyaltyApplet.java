@@ -9,6 +9,10 @@ import javax.sound.midi.SysexMessage;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.security.spec.EncodedKeySpec;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import javax.crypto.Cipher;
@@ -34,9 +38,12 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     String card = "certificate card";
     int cardId = 21;
 
+    boolean personalized = false;
+
     byte[] cardID = null;
     byte[] certificate = null;
-    KeyPair keyPair = null;
+    PublicKey publicKey = null;
+    PrivateKey privateKey = null;
 
     //card keeps track of the most recent 100 transactions
     int lastTransactionIndex = 0;
@@ -78,6 +85,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         switch (insAsEnum) {
             case PERSONALIZE:
                 currentMode = AppUtil.AppMode.PERSONALIZE;
+                System.out.println("personalize");
                 acceptInfo(apdu, buffer);
                 break;
 
@@ -118,18 +126,52 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
     }
 
-    private void acceptInfo(APDU apdu, byte[] buffer){
-        int IDLength = new BigInteger(Arrays.copyOfRange(buffer, 0, 8)).intValue();
-        byte[] cardIDBytes = Arrays.copyOfRange(buffer, 8, 8 + IDLength);
-        cardID = cardIDBytes;
-        int certLength = new BigInteger(Arrays.copyOfRange(buffer, 8 + IDLength, 8 + IDLength + 8)).intValue();
-        byte[] certificateBytes = Arrays.copyOfRange(buffer, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
-        certificate = certificateBytes;
-        int pairLength = new BigInteger(Arrays.copyOfRange(buffer, 8 + IDLength + 8 + certLength, 8 + IDLength + 8 + certLength + 8)).intValue();
-        byte[] keyPairBytes = Arrays.copyOfRange(buffer, 8 + IDLength + 8 + certLength + 8, 8 + IDLength + 8 + certLength + 8 + pairLength);
-        //KeyPair keyPair = (KeyPair) keyPairBytes.toString();
+    private void acceptInfo(APDU apdu, byte[] buffer) {
+        //Return directly when already personalized
+        /*if(!personalized) {
+            short le = apdu.setOutgoing();
+            apdu.setOutgoingLength(le);
+            byte[] send = new byte[1];
+            send[0] = 0;
+            System.arraycopy(send, 0, buffer, 0, send.length);
+            apdu.sendBytes((short) 0, le);
+        }*/
 
-        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + keyPairBytes.length;
+        //Get information out of incoming buffer
+        int IDLength = new BigInteger(Arrays.copyOfRange(buffer, 4, 4+ 8)).intValue();
+        byte[] cardIDBytes = Arrays.copyOfRange(buffer, 4 + 8, 4 + 8 + IDLength);
+        cardID = cardIDBytes;
+        int certLength = new BigInteger(Arrays.copyOfRange(buffer, 4 + 8 + IDLength, 4 + 8 + IDLength + 8)).intValue();
+        byte[] certificateBytes = Arrays.copyOfRange(buffer, 4 + 8 + IDLength + 8, 4 + 8 + IDLength + 8 + certLength);
+        certificate = certificateBytes;
+        int pubKeyLength = new BigInteger(Arrays.copyOfRange(buffer, 4 + 8 + IDLength + 8 + certLength, 4 + 8 + IDLength + 8 + certLength + 8)).intValue();
+        byte[] pubKeyBytes = Arrays.copyOfRange(buffer, 4 + 8 + IDLength + 8 + certLength + 8, 4 + 8 + IDLength + 8 + certLength + 8 + pubKeyLength);
+        int privKeyLength = new BigInteger(Arrays.copyOfRange(buffer, 4 + 8 + IDLength + 8 + certLength, 4 + 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8)).intValue();
+        byte[] privKeyBytes = Arrays.copyOfRange(buffer, 4 + 8 + IDLength + 8 + certLength + 8, 4 + 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength);
+        System.out.println("get info");
+
+        //Use a KeyFactory to regenerate the keys from the byte arrays
+        try {
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(pubKeyBytes);
+            publicKey = kf.generatePublic(pubKeySpec);
+            EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(privKeyBytes);
+            privateKey = kf.generatePrivate(privKeySpec);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println("KeyFactory");
+
+        personalized = true;
+
+        short le = apdu.setOutgoing();
+        if (le < 1) {
+            ISOException.throwIt((short) (SW_WRONG_LENGTH | 1));
+        }
+        byte[] send_answer = {(byte)1};
+        apdu.setOutgoingLength(le);
+        System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
+        apdu.sendBytes((short) 0, le);
     }
 
     private void sendCertificateAndCounter(APDU apdu, byte[] buffer){
