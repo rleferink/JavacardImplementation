@@ -78,8 +78,8 @@ public class CardManager extends JPanel implements ActionListener {
         database = new Database();
 
         //Create the two terminals
-        posTerminal = new PosTerminal(cardTerminals.getTerminal("POS Terminal"), simulator, database, publicKeyCA, pairPosTerminal, certificatePOS);
-        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), simulator, database, pairCA);
+        posTerminal = new PosTerminal(cardTerminals.getTerminal("POS Terminal"), simulator, database, publicKeyCA, pairPosTerminal, certificatePOS, card);
+        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), simulator, database, pairCA, card);
 
         personalizationTerminal.revalidate();
         posTerminal.revalidate();

@@ -15,8 +15,10 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -48,7 +50,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
 
     KeyPair pairCA;
 
-    public PersonalizationTerminal(CardTerminal personalization_terminal, CardSimulator simulator, Database database, KeyPair pairCA){
+    public PersonalizationTerminal(CardTerminal personalization_terminal, CardSimulator simulator, Database database, KeyPair pairCA, Card card){
         System.out.println("Start Personalization");
 
         JFrame ptFrame = new JFrame("Personalisation Terminal");
@@ -61,6 +63,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         ptFrame.setVisible(true);
 
         this.pairCA = pairCA;
+        this.card = card;
 
         buildGUI(ptFrame);
         setEnabled(false, card);
@@ -157,19 +160,25 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     }
 
     void sendInfoToCard(String cardID, Certificate certificateCard, KeyPair keyPair){
+        //Extract keys from key pair
         PublicKey publicKey = keyPair.getPublic();
         PrivateKey privateKey = keyPair.getPrivate();
 
+        //Prepare info for sending
         byte[] cardIDBytes = cardID.getBytes(StandardCharsets.UTF_8);
-        byte[] IDLength = BigInteger.valueOf(cardIDBytes.length).toByteArray();
+        byte[] IDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
         byte[] certificateBytes = certificateCard.getCertificate();
-        byte[] certLength = BigInteger.valueOf(certificateBytes.length).toByteArray();
+        byte[] certLength = ByteBuffer.allocate(8).putInt(certificateBytes.length).array();
         byte[] pubKeyBytes = publicKey.getEncoded();
-        byte[] pubKeyLength = BigInteger.valueOf(pubKeyBytes.length).toByteArray();
+        byte[] pubKeyLength = ByteBuffer.allocate(8).putInt(pubKeyBytes.length).array();
         byte[] privKeyBytes = privateKey.getEncoded();
-        byte[] privKeyLength = BigInteger.valueOf(privKeyBytes.length).toByteArray();
+        byte[] privKeyLength = ByteBuffer.allocate(8).putInt(privKeyBytes.length).array();
         int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8 + privKeyBytes.length;
+        System.out.println("certificate bytes length:" + certificateBytes.length);
+        System.out.println("public key bytes length:" + pubKeyBytes.length);
+        System.out.println("private key bytes length:" + privKeyBytes.length);
 
+        //Combine info into one array
         byte[] send = new byte[lengthMessage];
         System.arraycopy(IDLength, 0, send, 0, IDLength.length);
         System.arraycopy(cardIDBytes, 0, send, 8, cardIDBytes.length);
@@ -179,17 +188,57 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         System.arraycopy(pubKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8, pubKeyBytes.length);
         System.arraycopy(privKeyLength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length, privKeyLength.length);
         System.arraycopy(privKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8, privKeyBytes.length);
+        System.out.println(send.length);
+        System.out.println(lengthMessage);
 
-        CommandAPDU apdu_sendInfo = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, 0, 0, send, 1);
-        ResponseAPDU apdu_res = null;
+        //Cut combined info into smaller pieces for a commandAPDU
+        ArrayList<byte[]> sendingChunks = new ArrayList<>();
+        int i;
+        for (i = 0; i <= 2250; i += 250){
+            byte[] chunk = new byte[250];
+            System.out.println(i);
+            System.arraycopy(send, i, chunk, 0, 250);
+            sendingChunks.add(chunk);
+        }
+        byte[] lastChunk = new byte[lengthMessage - i];
+        System.arraycopy(send, 0, lastChunk, 0, lengthMessage - i);
+        sendingChunks.add(lastChunk);
+
+        //Send the length of the info to send to the card
+        byte[] sendLength = ByteBuffer.allocate(8).putInt(lengthMessage).array();
+        System.out.println(sendLength);
+        CommandAPDU apdu_sendLength = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, AppUtil.AppComState.SEND_LENGTH.mode, 0, sendLength, 1);
+        ResponseAPDU apdu_resLength = null;
         try {
-            apdu_res = sendCommandAPDU(apdu_sendInfo);
+            apdu_resLength = sendCommandAPDU(apdu_sendLength);
         } catch (CardException e) {
             System.out.println((MSG_ERROR));
             e.printStackTrace();
         }
 
-        byte[] response = apdu_res.getData();
+        //send the chunks to the card
+        for (byte[] chunk:sendingChunks) {
+            CommandAPDU apdu_sendInfo = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, AppUtil.AppComState.SEND_INFO.mode, 0, chunk, 1);
+            ResponseAPDU apdu_resInfo = null;
+            try {
+                apdu_resInfo = sendCommandAPDU(apdu_sendInfo);
+            } catch (CardException e) {
+                System.out.println((MSG_ERROR));
+                e.printStackTrace();
+            }
+        }
+
+        //Send command to process the info sent to the card
+        CommandAPDU apdu_processInfo = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, AppUtil.AppComState.PROCESS_INFO.mode, 0, new byte[0], 1);
+        ResponseAPDU apdu_res = null;
+        try {
+            apdu_res = sendCommandAPDU(apdu_processInfo);
+        } catch (CardException e) {
+            System.out.println((MSG_ERROR));
+            e.printStackTrace();
+        }
+
+        byte[] response = apdu_res.getBytes();
         System.out.println(response.length);
         System.out.println(response);
         /*if(response[0] == 0){

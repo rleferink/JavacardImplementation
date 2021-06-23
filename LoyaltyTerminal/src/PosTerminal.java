@@ -90,7 +90,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     JPanel keypad;
 
 
-    public PosTerminal(CardTerminal PosTerminal, CardSimulator simulator, Database database, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS) {
+    public PosTerminal(CardTerminal PosTerminal, CardSimulator simulator, Database database, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS, Card card) {
         JFrame posFrame = new JFrame("POS Terminal");
         posFrame.setPreferredSize(PREFERRED_SIZE);
         Container c = posFrame.getContentPane();
@@ -103,6 +103,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         this.certificatePOS = certificatePOS;
         this.publicKeyCA = publicKeyCA;
         this.pairPosTerminal = pairPosTerminal;
+        this.card = card;
 
         buildGUI(posFrame);
         setEnabled(false, card);
