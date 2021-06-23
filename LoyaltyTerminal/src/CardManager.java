@@ -48,13 +48,15 @@ public class CardManager extends JPanel implements ActionListener {
     CardTerminal terminal1 = cardTerminals.getTerminal("POS Terminal");
     CardTerminal terminal2 = cardTerminals.getTerminal("Personalization Terminal");
 
+    Database database;
+
     public CardManager(JFrame frame) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         buildGUI(frame);
         setEnabled(true);
+
         // Create simulator and install applet
         simulator = new CardSimulator();
         AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
-        // @Andrius: This inserts a card
         simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
 
         //Create generator for keypairs
@@ -69,12 +71,15 @@ public class CardManager extends JPanel implements ActionListener {
         //generate key pair and certificate for POS Terminal
         KeyPair pairPosTerminal = generator.generateKeyPair();
         PublicKey publicKeyPOS = pairPosTerminal.getPublic();
-        Certificate c = new Certificate("POS1", "CA", "01-01-2022", publicKeyPOS);
-        byte[] certificatePOS = c.getCertificate(privateKeyCA);
+        Certificate c = new Certificate("POS1", "CA", "01-01-2022", publicKeyPOS, privateKeyCA);
+        byte[] certificatePOS = c.getCertificate();
+
+        //Create a new database
+        database = new Database();
 
         //Create the two terminals
-        posTerminal = new PosTerminal(cardTerminals.getTerminal("POS Terminal"), simulator,  publicKeyCA, pairPosTerminal, certificatePOS);
-        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), simulator, pairCA);
+        posTerminal = new PosTerminal(cardTerminals.getTerminal("POS Terminal"), simulator, database, publicKeyCA, pairPosTerminal, certificatePOS);
+        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), simulator, database, pairCA);
 
         personalizationTerminal.revalidate();
         posTerminal.revalidate();
@@ -125,23 +130,23 @@ public class CardManager extends JPanel implements ActionListener {
                     // Insert Card into "Personalization Terminal
                     if (active){
                         //card.disconnect(false);
-                        posTerminal.setEnabled(false);
+                        posTerminal.setEnabled(false, card);
                     }
                     active = false;
                     simulator.assignToTerminal(terminal2);
-                    //card = terminal2.connect("*");
-                    personalizationTerminal.setEnabled(true);
+                    card = terminal2.connect("*");
+                    personalizationTerminal.setEnabled(true, card);
                 }
                 else if (c=="POS Terminal"){
                     // Insert Card into "POS terminal"
                     if (!active){
                         //card.disconnect(false);
-                        personalizationTerminal.setEnabled(false);
+                        personalizationTerminal.setEnabled(false, card);
                     }
                     active = true;
                     simulator.assignToTerminal(terminal1);
-                    //card = terminal1.connect("*");
-                    posTerminal.setEnabled(true);
+                    card = terminal1.connect("*");
+                    posTerminal.setEnabled(true, card);
                 }
 
                 applet = card.getBasicChannel();
@@ -151,6 +156,7 @@ public class CardManager extends JPanel implements ActionListener {
                 }
             }
         } catch (Exception ex) {
+            ex.printStackTrace();
             System.err.println("Card status problem!");
         }
     }

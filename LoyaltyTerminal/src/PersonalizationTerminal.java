@@ -41,10 +41,11 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     CardChannel applet;
     CardSimulator simulator;
     CardTerminal terminal2;
+    Database database;
 
     KeyPair pairCA;
 
-    public PersonalizationTerminal(CardTerminal personalization_terminal, CardSimulator simulator, KeyPair pairCA){
+    public PersonalizationTerminal(CardTerminal personalization_terminal, CardSimulator simulator, Database database, KeyPair pairCA){
         System.out.println("Start Personalization");
 
         JFrame ptFrame = new JFrame("Personalisation Terminal");
@@ -63,20 +64,14 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
 
         terminal2 = personalization_terminal;
         this.simulator = simulator;
-
-        // Create simulator and install applet
-        /*simulator = new CardSimulator();
-        AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
-        // This inserts a card
-        simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
-        simulator.assignToTerminal(terminal2);*/
+        this.database = database;
 
         //TODO obtain keys from certificate
 
     }
 
 
-    public void setEnabled(boolean b) {
+    public void setEnabled(boolean b, Card card) {
         super.setEnabled(b);
         if (b) {
             setText("0");
@@ -86,6 +81,10 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         Component[] keys = keypad.getComponents();
         for (int i = 0; i < keys.length; i++) {
             keys[i].setEnabled(b);
+        }
+        this.card = card;
+        if (card != null){
+            applet = card.getBasicChannel();
         }
     }
 
@@ -163,22 +162,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             System.exit(0);
         }
     }
-
-    /*class SimulatedCardThread2 extends Thread {
-        public void run() {
-            try {
-                card = terminal2.connect("*");
-                applet = card.getBasicChannel();
-                ResponseAPDU resp = applet.transmit(SELECT_APDU);
-                if (resp.getSW() != 0x9000) {
-                    throw new Exception("Select failed");
-                }
-                setEnabled(true);
-            } catch (Exception e) {
-                System.err.println("Card status problem!");
-            }
-        }
-    }*/
 }
 
 //set string which needs to be encrypted

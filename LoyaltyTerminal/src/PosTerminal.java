@@ -69,6 +69,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     CardChannel applet;
     CardSimulator simulator;
     CardTerminal terminal1;
+    Database database;
 
     static byte[] certificatePOS;
     static PublicKey publicKeyCA;
@@ -89,7 +90,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     JPanel keypad;
 
 
-    public PosTerminal(CardTerminal PosTerminal, CardSimulator simulator, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS) {
+    public PosTerminal(CardTerminal PosTerminal, CardSimulator simulator, Database database, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS) {
         JFrame posFrame = new JFrame("POS Terminal");
         posFrame.setPreferredSize(PREFERRED_SIZE);
         Container c = posFrame.getContentPane();
@@ -108,6 +109,7 @@ public class PosTerminal extends JPanel implements ActionListener {
 
         terminal1 = PosTerminal;
         this.simulator = simulator;
+        this.database = database;
     }
 
     void buildGUI(JFrame parent) {
@@ -202,7 +204,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         setText(Integer.toString(n));
     }
 
-    public void setEnabled(boolean b) {
+    public void setEnabled(boolean b, Card card) {
         super.setEnabled(b);
         if (b) {
             setText(0);
@@ -212,6 +214,10 @@ public class PosTerminal extends JPanel implements ActionListener {
         Component[] keys = keypad.getComponents();
         for (int i = 0; i < keys.length; i++) {
             keys[i].setEnabled(b);
+        }
+        this.card = card;
+        if (card != null){
+            applet = card.getBasicChannel();
         }
     }
 
@@ -338,7 +344,7 @@ public class PosTerminal extends JPanel implements ActionListener {
             }
         } catch (Exception ex) {
             System.out.println(MSG_ERROR);
-            System.out.println(ex);
+            ex.printStackTrace();
         }
     }
 
@@ -413,6 +419,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
         received = res_certificate.getData();
         short buffer_size = (short) received.length;
+        //TODO: Change to accommodate new certificate
         String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size-13));
         if(received[0] == counter[0] + 1){
             System.out.println("Counter CORRECT");
@@ -480,14 +487,6 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
     }
 
-    public ResponseAPDU sendKey(byte P1) {
-        CommandAPDU apdu = new CommandAPDU(0, (byte)appMode.toString().toCharArray()[0], P1, 0, 5);
-        try {
-            return applet.transmit(apdu);
-        } catch (CardException e) {
-            return null;
-        }
-    }
 
     public Dimension getPreferredSize() {
         return PREFERRED_SIZE;
