@@ -7,19 +7,19 @@ public class Database {
         cards = new ArrayList<>();
     }
 
-    public void addCard(String cardID, String authCode, Certificate certificate){
+    public void addCard(String cardID, byte[] authCode, Certificate certificate){
         cards.add(new cardInfo(cardID, authCode, certificate));
     }
 
     class cardInfo{
         private String cardID;
-        private String authCode;
+        private byte[] authCodeHash;
         private Certificate certificate;
         private boolean active;
 
-        public cardInfo(String cardID, String authCode, Certificate certificate){
+        public cardInfo(String cardID, byte[] authCode, Certificate certificate){
             this.cardID = cardID;
-            this.authCode = authCode;
+            this.authCodeHash = authCode;
             this.certificate = certificate;
             active = true;
         }

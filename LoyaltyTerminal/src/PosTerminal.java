@@ -221,38 +221,6 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
     }
 
-    /* Connect the terminal with a simulated smartcard JCardSim
-     */
-    /*class SimulatedCardThread extends Thread {
-        public void run() {
-            // Obtain a CardTerminal
-            CardTerminals cardTerminals = CardTerminalSimulator.terminals("My terminal 1");
-            CardTerminal terminal1 = cardTerminals.getTerminal("My terminal 1");
-
-            // Create simulator and install applet
-            CardSimulator simulator = new CardSimulator();
-            AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
-            // @Andrius: This inserts a card
-            simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
-
-            // Insert Card into "My terminal 1"
-            simulator.assignToTerminal(terminal1);
-
-            try {
-                Card card = terminal1.connect("*");
-
-                applet = card.getBasicChannel();
-                ResponseAPDU resp = applet.transmit(SELECT_APDU);
-                if (resp.getSW() != 0x9000) {
-                    throw new Exception("Select failed");
-                }
-                setEnabled(true);
-            } catch (Exception e) {
-                System.err.println("Card status problem!");
-            }
-        }
-    }*/
-
     @Override
     public void actionPerformed(ActionEvent e) {
         try {

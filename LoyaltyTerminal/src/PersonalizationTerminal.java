@@ -8,6 +8,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.*;
 import javax.swing.*;
+import javax.xml.crypto.Data;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -65,9 +66,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         terminal2 = personalization_terminal;
         this.simulator = simulator;
         this.database = database;
-
-        //TODO obtain keys from certificate
-
     }
 
 
@@ -133,25 +131,23 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         try {
-            //generate key pair for Card
+            //generate key pair for card
             KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
             generator.initialize(2048);
             KeyPair pairCard = generator.generateKeyPair();
-            PrivateKey privateKeyCA = pairCA.getPrivate();
-            PublicKey publicKeyCA = pairCA.getPublic();
-            PrivateKey privateKeyCard = pairCard.getPrivate();
-            PublicKey publicKeyCard = pairCard.getPublic();
-            String cardID = "1";
-            String issuerName = "CA";
-            String expiryDate = "01-01-2022";
-            Random authenticationCode = new Random();
 
-            String secretMessage = cardID + issuerName + expiryDate + publicKeyCard;
-            Cipher encryptCipher = Cipher.getInstance("RSA");
-            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKeyCA);
-            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
-            byte[] certificateCard = encryptCipher.doFinal(secretMessageBytes);
-            //TODO certificate naar LoyaltyApplet
+            //create certificate for the card
+            String cardID = "card1";
+            Certificate certificateCard = new Certificate(cardID, "CA", "01-01-2022", pairCard.getPublic(), pairCA.getPrivate());
+
+            //Create authentication code and store info in database
+            String authenticationCode = "authCode1";
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] authCodeHash = digest.digest(authenticationCode.getBytes(StandardCharsets.UTF_8));
+            database.addCard(cardID, authCodeHash, certificateCard);
+
+            //TODO send cardID, certificate and key pair to LoyaltyApplet and block personalization
+
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
             ex.printStackTrace();
         }
@@ -164,7 +160,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     }
 }
 
-//set string which needs to be encrypted
+//Example code to encrypt
             /*
             String secretMessage = "1234";
             Cipher encryptCipher = Cipher.getInstance("RSA");
