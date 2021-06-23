@@ -72,10 +72,9 @@ public class CardManager extends JPanel implements ActionListener {
         Certificate c = new Certificate("POS1", "CA", "01-01-2022", publicKeyPOS);
         byte[] certificatePOS = c.getCertificate(privateKeyCA);
 
-        //hieronder een frame maken om mee te geven aan de posTerminal
-        JFrame posFrame = new JFrame();
-        posTerminal = new PosTerminal(posFrame, publicKeyCA, pairPosTerminal, certificatePOS);
-        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), pairCA);
+        //Create the two terminals
+        posTerminal = new PosTerminal(cardTerminals.getTerminal("POS Terminal"), simulator,  publicKeyCA, pairPosTerminal, certificatePOS);
+        personalizationTerminal = new PersonalizationTerminal(cardTerminals.getTerminal("Personalization Terminal"), simulator, pairCA);
 
         personalizationTerminal.revalidate();
         posTerminal.revalidate();
@@ -123,21 +122,25 @@ public class CardManager extends JPanel implements ActionListener {
                 String c = ((JButton) src).getText();
 
                 if (c=="Personalize"){
-                    // Insert Card into "Personalization Terminal"
-                    simulator.assignToTerminal(terminal2);
+                    // Insert Card into "Personalization Terminal
                     if (active){
+                        //card.disconnect(false);
                         posTerminal.setEnabled(false);
                     }
-                    card = terminal2.connect("*");
+                    active = false;
+                    simulator.assignToTerminal(terminal2);
+                    //card = terminal2.connect("*");
                     personalizationTerminal.setEnabled(true);
                 }
                 else if (c=="POS Terminal"){
                     // Insert Card into "POS terminal"
                     if (!active){
+                        //card.disconnect(false);
                         personalizationTerminal.setEnabled(false);
                     }
+                    active = true;
                     simulator.assignToTerminal(terminal1);
-                    card = terminal1.connect("*");
+                    //card = terminal1.connect("*");
                     posTerminal.setEnabled(true);
                 }
 
@@ -156,12 +159,6 @@ public class CardManager extends JPanel implements ActionListener {
     class CloseEventListener extends WindowAdapter {
         public void windowClosing(WindowEvent we) {
             System.exit(0);
-        }
-    }
-
-    class SimulatedCardThread extends Thread {
-        public void run() {
-
         }
     }
 

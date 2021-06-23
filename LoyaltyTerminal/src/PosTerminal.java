@@ -65,6 +65,16 @@ public class PosTerminal extends JPanel implements ActionListener {
     static final CommandAPDU SELECT_APDU = new CommandAPDU(
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
 
+    Card card;
+    CardChannel applet;
+    CardSimulator simulator;
+    CardTerminal terminal1;
+
+    static byte[] certificatePOS;
+    static PublicKey publicKeyCA;
+    static KeyPair pairPosTerminal;
+
+
     String POSTerminal = "certificate POSTerminal";
     int terminalId = 19;
 
@@ -78,27 +88,26 @@ public class PosTerminal extends JPanel implements ActionListener {
     JTextField display;
     JPanel keypad;
 
-    CardChannel applet;
 
-    static byte[] certificatePOS;
-    static PublicKey publicKeyCA;
-    static KeyPair pairPosTerminal;
-
-    public PosTerminal(JFrame parent, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS) {
-        JFrame posFrame = new JFrame(TITLE);
+    public PosTerminal(CardTerminal PosTerminal, CardSimulator simulator, PublicKey publicKeyCA, KeyPair pairPosTerminal, byte[] certificatePOS) {
+        JFrame posFrame = new JFrame("POS Terminal");
+        posFrame.setPreferredSize(PREFERRED_SIZE);
         Container c = posFrame.getContentPane();
         c.add(this);
         posFrame.setResizable(false);
         posFrame.pack();
         posFrame.setVisible(true);
 
+
         this.certificatePOS = certificatePOS;
         this.publicKeyCA = publicKeyCA;
         this.pairPosTerminal = pairPosTerminal;
 
-        buildGUI(parent);
+        buildGUI(posFrame);
         setEnabled(false);
-        //(new SimulatedCardThread()).start();
+
+        terminal1 = PosTerminal;
+        this.simulator = simulator;
     }
 
     void buildGUI(JFrame parent) {
@@ -485,13 +494,13 @@ public class PosTerminal extends JPanel implements ActionListener {
     }
 
     public void main(String[] args) {
-        JFrame frame = new JFrame(TITLE);
+        /*JFrame frame = new JFrame(TITLE);
         Container c = frame.getContentPane();
-        PosTerminal panel = new PosTerminal(frame, publicKeyCA, this.pairPosTerminal, this.certificatePOS);
+        PosTerminal panel = new PosTerminal(, publicKeyCA, this.pairPosTerminal, this.certificatePOS);
         c.add(panel);
         frame.setResizable(false);
         frame.pack();
-        frame.setVisible(true);
+        frame.setVisible(true);*/
 
 
     }

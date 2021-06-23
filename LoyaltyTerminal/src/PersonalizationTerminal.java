@@ -38,14 +38,13 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
 
     Card card;
-
     CardChannel applet;
     CardSimulator simulator;
     CardTerminal terminal2;
 
     KeyPair pairCA;
 
-    public PersonalizationTerminal(CardTerminal personalization_terminal, KeyPair pairCA){
+    public PersonalizationTerminal(CardTerminal personalization_terminal, CardSimulator simulator, KeyPair pairCA){
         System.out.println("Start Personalization");
 
         JFrame ptFrame = new JFrame("Personalisation Terminal");
@@ -59,18 +58,18 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
 
         this.pairCA = pairCA;
 
-        //simulatorInterface = new JavaxSmartCardInterface(); // SIM
         buildGUI(ptFrame);
         setEnabled(false);
 
         terminal2 = personalization_terminal;
+        this.simulator = simulator;
 
         // Create simulator and install applet
-        simulator = new CardSimulator();
+        /*simulator = new CardSimulator();
         AID calcAppletAID = new AID(CALC_APPLET_AID,(byte)0,(byte)7);
         // This inserts a card
         simulator.installApplet(calcAppletAID, LoyaltyApplet.class);
-        simulator.assignToTerminal(terminal2);
+        simulator.assignToTerminal(terminal2);*/
 
         //TODO obtain keys from certificate
 
@@ -165,7 +164,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         }
     }
 
-    class SimulatedCardThread2 extends Thread {
+    /*class SimulatedCardThread2 extends Thread {
         public void run() {
             try {
                 card = terminal2.connect("*");
@@ -179,7 +178,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
                 System.err.println("Card status problem!");
             }
         }
-    }
+    }*/
 }
 
 //set string which needs to be encrypted
