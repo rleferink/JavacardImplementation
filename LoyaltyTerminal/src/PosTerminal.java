@@ -105,7 +105,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         this.pairPosTerminal = pairPosTerminal;
 
         buildGUI(posFrame);
-        setEnabled(false);
+        setEnabled(false, card);
 
         terminal1 = PosTerminal;
         this.simulator = simulator;

@@ -30,8 +30,13 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     final static byte ACK_ONLINE = (byte) 0x21;
     final static byte DECREASE_BALANCE = (byte) 0x22;
 
+    //TODO: Remove when switched to new data types
     String card = "certificate card";
     int cardId = 21;
+
+    byte[] cardID = null;
+    byte[] certificate = null;
+    KeyPair keyPair = null;
 
     //card keeps track of the most recent 100 transactions
     int lastTransactionIndex = 0;
@@ -71,6 +76,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
 
         switch (insAsEnum) {
+            case PERSONALIZE:
+                currentMode = AppUtil.AppMode.PERSONALIZE;
+                acceptInfo(apdu, buffer);
+                break;
+
             case ADD:
                 //instruction: ADD
                 currentMode = AppUtil.AppMode.ADD;
@@ -106,6 +116,20 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             default:
                 ISOException.throwIt(SW_INS_NOT_SUPPORTED);
         }
+    }
+
+    private void acceptInfo(APDU apdu, byte[] buffer){
+        int IDLength = new BigInteger(Arrays.copyOfRange(buffer, 0, 8)).intValue();
+        byte[] cardIDBytes = Arrays.copyOfRange(buffer, 8, 8 + IDLength);
+        cardID = cardIDBytes;
+        int certLength = new BigInteger(Arrays.copyOfRange(buffer, 8 + IDLength, 8 + IDLength + 8)).intValue();
+        byte[] certificateBytes = Arrays.copyOfRange(buffer, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
+        certificate = certificateBytes;
+        int pairLength = new BigInteger(Arrays.copyOfRange(buffer, 8 + IDLength + 8 + certLength, 8 + IDLength + 8 + certLength + 8)).intValue();
+        byte[] keyPairBytes = Arrays.copyOfRange(buffer, 8 + IDLength + 8 + certLength + 8, 8 + IDLength + 8 + certLength + 8 + pairLength);
+        //KeyPair keyPair = (KeyPair) keyPairBytes.toString();
+
+        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + keyPairBytes.length;
     }
 
     private void sendCertificateAndCounter(APDU apdu, byte[] buffer){

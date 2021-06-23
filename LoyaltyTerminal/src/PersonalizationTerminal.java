@@ -14,8 +14,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.util.Arrays;
 import java.util.Random;
 
 
@@ -61,7 +63,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         this.pairCA = pairCA;
 
         buildGUI(ptFrame);
-        setEnabled(false);
+        setEnabled(false, card);
 
         terminal2 = personalization_terminal;
         this.simulator = simulator;
@@ -147,10 +149,83 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             database.addCard(cardID, authCodeHash, certificateCard);
 
             //TODO send cardID, certificate and key pair to LoyaltyApplet and block personalization
+            sendInfoToCard(cardID, certificateCard, pairCard);
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
             ex.printStackTrace();
         }
+    }
+
+    void sendInfoToCard(String cardID, Certificate certificateCard, KeyPair keyPair){
+        byte[] cardIDBytes = cardID.getBytes(StandardCharsets.UTF_8);
+        byte[] IDLength = BigInteger.valueOf(cardIDBytes.length).toByteArray();
+        byte[] certificateBytes = certificateCard.getCertificate();
+        byte[] certLength = BigInteger.valueOf(certificateBytes.length).toByteArray();
+        byte[] keyPairBytes = keyPair.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] pairLength = BigInteger.valueOf(keyPairBytes.length).toByteArray();
+        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + keyPairBytes.length;
+
+        byte[] send = new byte[lengthMessage];
+        System.arraycopy(IDLength, 0, send, 0, IDLength.length);
+        System.arraycopy(cardIDBytes, 0, send, 8, cardIDBytes.length);
+        System.arraycopy(certLength, 0, send, 8 + cardIDBytes.length, certLength.length);
+        System.arraycopy(certificateBytes, 0, send, 8 + cardIDBytes.length + 8, certificateBytes.length);
+        System.arraycopy(pairLength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length, pairLength.length);
+        System.arraycopy(keyPairBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8, keyPairBytes.length);
+
+        CommandAPDU apdu_sendInfo = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, 0, 0, send);
+        ResponseAPDU apdu_res = null;
+        try {
+            apdu_res = sendCommandAPDU(apdu_sendInfo);
+        } catch (CardException e) {
+            System.out.println((MSG_ERROR));
+            e.printStackTrace();
+        }
+
+
+
+        /*byte[] send = new byte[counter.length + certificatePOS.length];
+        System.arraycopy(counter, 0, send, 0, counter.length);
+        System.arraycopy(certificatePOS, 0, send, counter.length, certificatePOS.length);
+        CommandAPDU apdu_certificate = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, send, 30);
+        //step 6: receive certificate and counter = 1
+        ResponseAPDU res_certificate = null;
+        try {
+            res_certificate = sendCommandAPDU(apdu_certificate);
+        } catch (CardException e) {
+            System.out.println((MSG_ERROR));
+            e.printStackTrace();
+        }
+        received = res_certificate.getData();
+        short buffer_size = (short) received.length;
+        //TODO: Change to accommodate new certificate
+        String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size-13));
+        if(received[0] == counter[0] + 1){
+            System.out.println("Counter CORRECT");
+        }
+        else{
+            System.out.println("Counter INCORRECT");
+            return null;
+        }
+        if(certificate_card.equals("certificate card")){
+            System.out.println("Certificate card CORRECT");
+        }
+        else{
+            System.out.println("certificate INCORRECT");
+            return null;
+        }
+        return received;*/
+    }
+
+    ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
+        ResponseAPDU rapdu = applet.transmit(capdu);
+
+        int sw = rapdu.getSW();
+        if (sw != 0x9000) {
+            setText(MSG_ERROR);
+        }
+
+        return rapdu;
     }
 
     class CloseEventListener extends WindowAdapter {

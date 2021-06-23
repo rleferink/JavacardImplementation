@@ -2,7 +2,8 @@ public class AppUtil {
     enum AppMode {
         ADD((byte) 0x10),
         SPEND((byte) 0x20),
-        VIEW((byte) 0x30);
+        VIEW((byte) 0x30),
+        PERSONALIZE((byte) 0x40);
 
         public final Byte mode;
 
