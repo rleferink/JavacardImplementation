@@ -121,7 +121,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 currentMode= AppUtil.AppMode.VIEW;
                 System.out.println("view");
                 view_balance(apdu, buffer);
-
                 break;
             case PERSONALIZE:
                 currentMode = AppUtil.AppMode.PERSONALIZE;
@@ -141,7 +140,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     }
 
     private void receiveLength(APDU apdu, byte[] buffer){
-        //Return directly when already personalized
+        //Return directly when already personalized with a value of 0
         if(personalized) {
             short le = apdu.setOutgoing();
             apdu.setOutgoingLength(le);
@@ -151,8 +150,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             return;
         }
 
+        //Retrieve the length of the incoming message and creating a new byte[] for that message
         lengthIncoming = ByteBuffer.wrap(Arrays.copyOfRange(buffer, 5, 5+ 8)).getInt();
         incoming = new byte[lengthIncoming];
+
+        //Return with 1
         short le = apdu.setOutgoing();
         byte[] send_answer = {(byte)1};
         apdu.setOutgoingLength(le);
@@ -161,6 +163,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     }
 
     private void receiveInfo(APDU apdu, byte[] buffer){
+        //Copy the incoming buffer into the previously made byte[] at the right position of incomingIndex
         if(lengthIncoming - incomingIndex >= 250){
             System.arraycopy(buffer, 5, incoming, incomingIndex, 250);
         } else {
@@ -168,6 +171,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
         incomingIndex += 250;
 
+        //Return with 1
         short le = apdu.setOutgoing();
         byte[] send_answer = {(byte)1};
         apdu.setOutgoingLength(le);
@@ -199,8 +203,10 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             e.printStackTrace();
         }
 
+        //Set card to be personalized
         personalized = true;
 
+        //Return with 1
         short le = apdu.setOutgoing();
         byte[] send_answer = {(byte)1};
         apdu.setOutgoingLength(le);
@@ -326,16 +332,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     }
 
     private void view_balance(APDU apdu, byte[] buffer){
-        short le = -1;
-        le = apdu.setOutgoing();
-        if (le < 1) {
-            ISOException.throwIt((short) (SW_WRONG_LENGTH | 1));
-        }
-
+        short le = apdu.setOutgoing();
         byte[] send_balance = {(byte) balance};
-        apdu.setOutgoingLength((short) 1); // Must be the same as expected length at i4 at the caller.
+        apdu.setOutgoingLength(le);
         System.arraycopy(send_balance, 0, buffer, 0, send_balance.length);
-        apdu.sendBytes((short) 0, (short) 1);
+        apdu.sendBytes((short) 0, le);
     }
 
 
