@@ -51,8 +51,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     KeyPair pairCA;
 
     public PersonalizationTerminal(CardTerminal personalization_terminal, CardSimulator simulator, Database database, KeyPair pairCA, Card card){
-        System.out.println("Start Personalization");
-
         JFrame ptFrame = new JFrame("Personalisation Terminal");
         ptFrame.setPreferredSize(PREFERRED_SIZE);
         ptFrame.setLocation(PREFERRED_LOCATION);
@@ -174,9 +172,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         byte[] privKeyBytes = privateKey.getEncoded();
         byte[] privKeyLength = ByteBuffer.allocate(8).putInt(privKeyBytes.length).array();
         int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8 + privKeyBytes.length;
-        System.out.println("certificate bytes length:" + certificateBytes.length);
-        System.out.println("public key bytes length:" + pubKeyBytes.length);
-        System.out.println("private key bytes length:" + privKeyBytes.length);
 
         //Combine info into one array
         byte[] send = new byte[lengthMessage];
@@ -188,15 +183,12 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         System.arraycopy(pubKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8, pubKeyBytes.length);
         System.arraycopy(privKeyLength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length, privKeyLength.length);
         System.arraycopy(privKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8, privKeyBytes.length);
-        System.out.println(send.length);
-        System.out.println(lengthMessage);
 
         //Cut combined info into smaller pieces for a commandAPDU
         ArrayList<byte[]> sendingChunks = new ArrayList<>();
         int i;
         for (i = 0; i <= 2250; i += 250){
             byte[] chunk = new byte[250];
-            System.out.println(i);
             System.arraycopy(send, i, chunk, 0, 250);
             sendingChunks.add(chunk);
         }
@@ -206,7 +198,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
 
         //Send the length of the info to send to the card
         byte[] sendLength = ByteBuffer.allocate(8).putInt(lengthMessage).array();
-        System.out.println(sendLength);
         CommandAPDU apdu_sendLength = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, AppUtil.AppComState.SEND_LENGTH.mode, 0, sendLength, 1);
         ResponseAPDU apdu_resLength = null;
         try {
@@ -214,6 +205,13 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         } catch (CardException e) {
             System.out.println((MSG_ERROR));
             e.printStackTrace();
+        }
+
+        //Return if card is already personalized
+        byte[] response = apdu_resLength.getData();
+        if(response[0] == 0){
+            setText("Card already personalized");
+            return;
         }
 
         //send the chunks to the card
@@ -238,14 +236,12 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             e.printStackTrace();
         }
 
-        byte[] response = apdu_res.getBytes();
-        System.out.println(response.length);
-        System.out.println(response);
-        /*if(response[0] == 0){
+        response = apdu_res.getData();
+        if(response[0] == 0){
             setText("Card is already personalized");
         } else {
             setText("Personalization is done");
-        }*/
+        }
     }
 
     ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {

@@ -7,6 +7,7 @@ import javax.smartcardio.CardException;
 import javax.sound.midi.SysexMessage;
 
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.EncodedKeySpec;
@@ -86,7 +87,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             }
         }
 
-        System.out.println("switch");
         switch (insAsEnum) {
             case ADD:
                 //instruction: ADD
@@ -126,15 +126,12 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case PERSONALIZE:
                 currentMode = AppUtil.AppMode.PERSONALIZE;
                 if (P1 == AppUtil.AppComState.SEND_LENGTH.mode){
-                    System.out.println("send length");
                     receiveLength(apdu, buffer);
                 }
                 if (P1 == AppUtil.AppComState.SEND_INFO.mode){
-                    System.out.println("send info");
                     receiveInfo(apdu, buffer);
                 }
                 if (P1 == AppUtil.AppComState.PROCESS_INFO.mode){
-                    System.out.println("process info");
                     acceptInfo(apdu, buffer);
                 }
                 break;
@@ -144,25 +141,31 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     }
 
     private void receiveLength(APDU apdu, byte[] buffer){
-        System.out.println("1");
-        lengthIncoming = new BigInteger(Arrays.copyOfRange(buffer, 4, 4+ 8)).intValue();
-        System.out.println("2");
-        System.out.println(lengthIncoming);
+        //Return directly when already personalized
+        if(personalized) {
+            short le = apdu.setOutgoing();
+            apdu.setOutgoingLength(le);
+            byte[] send_answer = {(byte)0};
+            System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
+            apdu.sendBytes((short) 0, le);
+            return;
+        }
+
+        lengthIncoming = ByteBuffer.wrap(Arrays.copyOfRange(buffer, 5, 5+ 8)).getInt();
         incoming = new byte[lengthIncoming];
-        System.out.println("3");
         short le = apdu.setOutgoing();
-        System.out.println("4");
         byte[] send_answer = {(byte)1};
-        System.out.println("5");
         apdu.setOutgoingLength(le);
-        System.out.println("6");
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
-        System.out.println("7");
         apdu.sendBytes((short) 0, le);
     }
 
     private void receiveInfo(APDU apdu, byte[] buffer){
-        System.arraycopy(buffer, 4, incoming, incomingIndex, buffer.length - 5);
+        if(lengthIncoming - incomingIndex >= 250){
+            System.arraycopy(buffer, 5, incoming, incomingIndex, 250);
+        } else {
+            System.arraycopy(buffer, 5, incoming, incomingIndex, lengthIncoming - incomingIndex);
+        }
         incomingIndex += 250;
 
         short le = apdu.setOutgoing();
@@ -173,28 +176,17 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     }
 
     private void acceptInfo(APDU apdu, byte[] buffer) {
-        //Return directly when already personalized
-        /*if(personalized) {
-            short le = apdu.setOutgoing();
-            apdu.setOutgoingLength(le);
-            byte[] send = new byte[1];
-            send[0] = 0;
-            System.arraycopy(send, 0, buffer, 0, send.length);
-            apdu.sendBytes((short) 0, le);
-        }*/
-
-        //Get information out of incoming buffer
-        int IDLength = new BigInteger(Arrays.copyOfRange(incoming, 0, 8)).intValue();
+        //Get information out of incoming
+        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
         byte[] cardIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength);
         cardID = cardIDBytes;
-        int certLength = new BigInteger(Arrays.copyOfRange(incoming, 8 + IDLength, 8 + IDLength + 8)).intValue();
+        int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength, 8 + IDLength + 8)).getInt();
         byte[] certificateBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
         certificate = certificateBytes;
-        int pubKeyLength = new BigInteger(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength, 8 + IDLength + 8 + certLength + 8)).intValue();
+        int pubKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength, 8 + IDLength + 8 + certLength + 8)).getInt();
         byte[] pubKeyBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength);
-        int privKeyLength = new BigInteger(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8)).intValue();
-        byte[] privKeyBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength);
-        System.out.println("get info");
+        int privKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8)).getInt();
+        byte[] privKeyBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength);
 
         //Use a KeyFactory to regenerate the keys from the byte arrays
         try {
@@ -206,7 +198,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        System.out.println("KeyFactory");
 
         personalized = true;
 
