@@ -6,6 +6,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.CardException;
 import javax.sound.midi.SysexMessage;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +46,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     byte[] certificate = null;
     PublicKey publicKey = null;
     PrivateKey privateKey = null;
+    PublicKey publicKeyCA = null;
 
     byte[] incoming = null;
     int incomingIndex = 0;
@@ -191,6 +193,8 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte[] pubKeyBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength);
         int privKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8)).getInt();
         byte[] privKeyBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength);
+        int pubCALength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8)).getInt();
+        byte[] pubCABytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8 + pubCALength);
 
         //Use a KeyFactory to regenerate the keys from the byte arrays
         try {
@@ -199,6 +203,8 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             publicKey = kf.generatePublic(pubKeySpec);
             EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(privKeyBytes);
             privateKey = kf.generatePrivate(privKeySpec);
+            EncodedKeySpec pubCASpec = new X509EncodedKeySpec(pubCABytes);
+            publicKeyCA = kf.generatePublic(pubCASpec);
         } catch (Exception e) {
             e.printStackTrace();
         }

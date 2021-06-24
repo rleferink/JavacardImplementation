@@ -14,6 +14,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -149,15 +150,14 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             byte[] authCodeHash = digest.digest(authenticationCode.getBytes(StandardCharsets.UTF_8));
             database.addCard(cardID, authCodeHash, certificateCard);
 
-            //TODO send cardID, certificate and key pair to LoyaltyApplet and block personalization
-            sendInfoToCard(cardID, certificateCard, pairCard);
+            sendInfoToCard(cardID, certificateCard, pairCard, pairCA.getPublic());
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
             ex.printStackTrace();
         }
     }
 
-    void sendInfoToCard(String cardID, Certificate certificateCard, KeyPair keyPair){
+    void sendInfoToCard(String cardID, Certificate certificateCard, KeyPair keyPair, PublicKey publicKeyCA){
         //Extract keys from key pair
         PublicKey publicKey = keyPair.getPublic();
         PrivateKey privateKey = keyPair.getPrivate();
@@ -171,7 +171,9 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         byte[] pubKeyLength = ByteBuffer.allocate(8).putInt(pubKeyBytes.length).array();
         byte[] privKeyBytes = privateKey.getEncoded();
         byte[] privKeyLength = ByteBuffer.allocate(8).putInt(privKeyBytes.length).array();
-        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8 + privKeyBytes.length;
+        byte[] pubCABytes = publicKeyCA.getEncoded();
+        byte[] pubCALength = ByteBuffer.allocate(8).putInt(pubCABytes.length).array();
+        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8 + privKeyBytes.length + 8 + pubCABytes.length;
 
         //Combine info into one array
         byte[] send = new byte[lengthMessage];
@@ -183,17 +185,19 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         System.arraycopy(pubKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8, pubKeyBytes.length);
         System.arraycopy(privKeyLength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length, privKeyLength.length);
         System.arraycopy(privKeyBytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8, privKeyBytes.length);
+        System.arraycopy(pubCALength, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8 + privKeyBytes.length, pubCALength.length);
+        System.arraycopy(pubCABytes, 0, send, 8 + cardIDBytes.length + 8 + certificateBytes.length + 8 + pubKeyBytes.length + 8 + privKeyBytes.length + 8, pubCABytes.length);
 
         //Cut combined info into smaller pieces for a commandAPDU
         ArrayList<byte[]> sendingChunks = new ArrayList<>();
         int i;
-        for (i = 0; i <= 2250; i += 250){
+        for (i = 0; i < (lengthMessage / 250) * 250; i += 250){
             byte[] chunk = new byte[250];
             System.arraycopy(send, i, chunk, 0, 250);
             sendingChunks.add(chunk);
         }
         byte[] lastChunk = new byte[lengthMessage - i];
-        System.arraycopy(send, 0, lastChunk, 0, lengthMessage - i);
+        System.arraycopy(send, i, lastChunk, 0, lengthMessage - i);
         sendingChunks.add(lastChunk);
 
         //Send the length of the info to send to the card
