@@ -200,7 +200,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         System.arraycopy(send, i, lastChunk, 0, lengthMessage - i);
         sendingChunks.add(lastChunk);
 
-        //Send the length of the info to send to the card
+        //Send the length of the info to the card
         byte[] sendLength = ByteBuffer.allocate(8).putInt(lengthMessage).array();
         CommandAPDU apdu_sendLength = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, AppUtil.AppComState.SEND_LENGTH.mode, 0, sendLength, 1);
         ResponseAPDU apdu_resLength = null;
@@ -218,7 +218,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             return;
         }
 
-        //send the chunks to the card
+        //Send the chunks to the card
         for (byte[] chunk:sendingChunks) {
             CommandAPDU apdu_sendInfo = new CommandAPDU(0x00, AppUtil.AppMode.PERSONALIZE.mode, AppUtil.AppComState.SEND_INFO.mode, 0, chunk, 1);
             ResponseAPDU apdu_resInfo = null;

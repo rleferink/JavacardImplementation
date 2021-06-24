@@ -71,8 +71,7 @@ public class CardManager extends JPanel implements ActionListener {
         //generate key pair and certificate for POS Terminal
         KeyPair pairPosTerminal = generator.generateKeyPair();
         PublicKey publicKeyPOS = pairPosTerminal.getPublic();
-        Certificate c = new Certificate("POS1", "CA", "01-01-2022", publicKeyPOS, privateKeyCA);
-        byte[] certificatePOS = c.getCertificate();
+        Certificate certificatePOS = new Certificate("POS1", "CA", "01-01-2022", publicKeyPOS, privateKeyCA);
 
         //Create a new database
         database = new Database();
