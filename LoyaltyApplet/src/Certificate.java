@@ -95,4 +95,12 @@ public class Certificate {
     }
 
     public String getID() { return ID; }
+
+    public String getExpiryDate() { return expiryDate; }
+
+    public String getIssuerName() { return issuerName; }
+
+    public byte[] getSignature() { return signature; }
+
+    public PublicKey getPublickKey() { return publicKey; }
 }

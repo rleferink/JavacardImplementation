@@ -39,6 +39,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     boolean personalized = false;
 
     byte[] cardID = null;
+    byte[] terminalID = null;
     byte[] certificate = null;
     PublicKey publicKey = null;
     PrivateKey privateKey = null;
@@ -95,7 +96,19 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                     receiveInfo(apdu, buffer);
                 }
                 if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    sendCertificateAndCounter(apdu, buffer);
+                    try {
+                        sendCertificateAndCounter(apdu, buffer);
+                    } catch (NoSuchAlgorithmException e) {
+                        e.printStackTrace();
+                    } catch (NoSuchPaddingException e) {
+                        e.printStackTrace();
+                    } catch (InvalidKeyException e) {
+                        e.printStackTrace();
+                    } catch (IllegalBlockSizeException e) {
+                        e.printStackTrace();
+                    } catch (BadPaddingException e) {
+                        e.printStackTrace();
+                    }
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
@@ -107,7 +120,19 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case SPEND:
                 currentMode= AppUtil.AppMode.SPEND;
                 if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    sendCertificateAndCounter(apdu, buffer);
+                    try {
+                        sendCertificateAndCounter(apdu, buffer);
+                    } catch (NoSuchAlgorithmException e) {
+                        e.printStackTrace();
+                    } catch (NoSuchPaddingException e) {
+                        e.printStackTrace();
+                    } catch (InvalidKeyException e) {
+                        e.printStackTrace();
+                    } catch (IllegalBlockSizeException e) {
+                        e.printStackTrace();
+                    } catch (BadPaddingException e) {
+                        e.printStackTrace();
+                    }
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
@@ -217,25 +242,54 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, le);
     }
 
-    private void sendCertificateAndCounter(APDU apdu, byte[] buffer){
+    private void sendCertificateAndCounter(APDU apdu, byte[] buffer) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         //Get information out of incoming
         int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
-        byte[] cardIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength);
-        cardID = cardIDBytes;
+        byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength);
+        terminalID = terminalIDBytes;
         int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength, 8 + IDLength + 8)).getInt();
         byte[] certificateBytesTerminal = Arrays.copyOfRange(incoming, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
 
         //TODO Verify certificate by creating a signature of info
         Certificate certificateTerminalCheck = new Certificate(certificateBytesTerminal);
+        String expiryDate = certificateTerminalCheck.getExpiryDate();
+        String issuerName = certificateTerminalCheck.getIssuerName();
+        byte[] signatureCheck = certificateTerminalCheck.getSignature();
+        PublicKey publicKeyTerminal = certificateTerminalCheck.getPublickKey();
+
+        String info = terminalID + issuerName + expiryDate + publicKeyTerminal;
+        byte[] infoBytes = info.getBytes(StandardCharsets.UTF_8);
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(infoBytes);
+
+        Cipher decryptCipher = Cipher.getInstance("RSA");
+        decryptCipher.init(Cipher.DECRYPT_MODE,publicKeyCA);
+        byte[] decryptedSignature = decryptCipher.doFinal(signatureCheck);
+
+        if(hash == decryptedSignature){
+            System.out.println("certificate POS terminal is valid");
+        }
+        else{
+            System.out.println("certificate POS terminal is NOT valid");
+            return;
+        }
+
         //certificate == signature of certificate?
 
         //return counter + certificate
         byte[] send = new byte[8 + certificate.length];
-        System.arraycopy(counter, 0, send, 0, 8);
+        System.out.println("length send certificate: " + certificate.length);
+        byte[] counterArray = bigIntToByteArray(counter);
+        System.arraycopy(counterArray, 0, send, 0, 8);
         System.arraycopy(certificate, 0, send, 8, certificate.length);
         apdu.setOutgoingLength((short) 30); // Must be the same as expected length at i4 at the caller.
         System.arraycopy(send, 0, buffer, 0, send.length);
         apdu.sendBytes((short) 0, (short) 30);
+    }
+
+    private byte[] bigIntToByteArray (int i){
+        BigInteger bigInt = BigInteger.valueOf(i);
+        return bigInt.toByteArray();
     }
 
     private void IncreaseBalance(APDU apdu, byte[] buffer, byte[] cardID, Byte[][] transactions){

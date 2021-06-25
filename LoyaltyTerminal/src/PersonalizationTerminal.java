@@ -72,7 +72,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         this.database = database;
     }
 
-
     public void setEnabled(boolean b, Card card) {
         super.setEnabled(b);
         if (b) {
@@ -94,16 +93,7 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         display.setText(txt);
     }
 
-    public static void main(String[] args) {
-        //To test encryption
-        /*String originalString = "EncryptionTest";
-        String encryptedString = AES256.encrypt(originalString);
-        String decryptedString = AES256.decrypt(encryptedString);
-        System.out.println(originalString);
-        System.out.println(encryptedString);
-        System.out.println(decryptedString);
-        */
-    }
+    public static void main(String[] args) { }
 
     void buildGUI(JFrame parent) {
         setLayout(new BorderLayout());

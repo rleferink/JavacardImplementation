@@ -367,20 +367,20 @@ public class PosTerminal extends JPanel implements ActionListener {
         return received;
     }
 
-    void sendInfoToCard(String cardID, Certificate certificateTerminal){
+    void sendInfoToCard(String terminalID, Certificate certificateTerminal){
         //Prepare info for sending
-        byte[] cardIDBytes = cardID.getBytes(StandardCharsets.UTF_8);
-        byte[] IDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
+        byte[] terminalIDBytes = terminalID.getBytes(StandardCharsets.UTF_8);
+        byte[] IDLength = ByteBuffer.allocate(8).putInt(terminalIDBytes.length).array();
         byte[] certificateBytes = certificateTerminal.getCertificate();
         byte[] certLength = ByteBuffer.allocate(8).putInt(certificateBytes.length).array();
-        int lengthMessage = 8 + cardIDBytes.length + 8 + certificateBytes.length;
+        int lengthMessage = 8 + terminalIDBytes.length + 8 + certificateBytes.length;
 
         //Combine info into one array
         byte[] send = new byte[lengthMessage];
         System.arraycopy(IDLength, 0, send, 0, IDLength.length);
-        System.arraycopy(cardIDBytes, 0, send, 8, cardIDBytes.length);
-        System.arraycopy(certLength, 0, send, 8 + cardIDBytes.length, certLength.length);
-        System.arraycopy(certificateBytes, 0, send, 8 + cardIDBytes.length + 8, certificateBytes.length);
+        System.arraycopy(terminalIDBytes, 0, send, 8, terminalIDBytes.length);
+        System.arraycopy(certLength, 0, send, 8 + terminalIDBytes.length, certLength.length);
+        System.arraycopy(certificateBytes, 0, send, 8 + terminalIDBytes.length + 8, certificateBytes.length);
 
         //Cut combined info into smaller pieces for a commandAPDU
         ArrayList<byte[]> sendingChunks = new ArrayList<>();
@@ -426,39 +426,37 @@ public class PosTerminal extends JPanel implements ActionListener {
             System.out.println((MSG_ERROR));
             e.printStackTrace();
         }
+
+        ResponseAPDU res_certificate = null;
+        try {
+            res_certificate = sendCommandAPDU(apdu_processInfo);
+        } catch (CardException e) {
+            System.out.println((MSG_ERROR));
+            e.printStackTrace();
+        }
+        byte[] received = res_certificate.getData();
+        short buffer_size = (short) received.length;
     }
 
     byte[] sendAndCheckCertificate(byte[] counter, byte[] received, byte state){
         //send certificate posTerminal to card
         sendInfoToCard(terminalID, certificatePOS);
 
-        //TODO: receive certificate of card and verify certificate and counter = 1
-        ResponseAPDU res_certificate = null;
-        try {
-            res_certificate = sendCommandAPDU(apdu_certificate);
-        } catch (CardException e) {
-            System.out.println((MSG_ERROR));
-            e.printStackTrace();
-        }
-        received = res_certificate.getData();
-        short buffer_size = (short) received.length;
+        //TODO: receive certificate of card
+
 
         //TODO: Change to accommodate new certificate
         //String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size));
-        if(received[0] == counter[0] + 1){
+       /* if(received[0] == counter[0] + 1){
             System.out.println("Counter CORRECT");
         }
         else{
             System.out.println("Counter INCORRECT");
             return null;
         }
-        if(certificate card = verified at CA){
-            System.out.println("Certificate card CORRECT");
-        }
-        else{
-            System.out.println("certificate INCORRECT");
-            return null;
-        }
+
+        */
+
         return received;
     }
 
@@ -474,16 +472,6 @@ public class PosTerminal extends JPanel implements ActionListener {
                     ((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF)));
         }
         return rapdu;
-    }
-
-    void log(ResponseAPDU obj){
-        //display.append(obj.toString() + ", Data="+ toHexString(obj.getData()) + "\n");
-        System.out.println(obj.toString() + ", Data=" + toHexString(obj.getData()));
-    }
-
-    void log(CommandAPDU obj){
-        //display.append(obj.toString() + ", Data="+ toHexString(obj.getData()) + "\n");
-        System.out.println(obj.toString() + ", Data=" + toHexString(obj.getData()));
     }
 
     byte[] getBytes(BigInteger big) {
@@ -511,12 +499,10 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
     }
 
-
     public Dimension getPreferredSize() {
         return PREFERRED_SIZE;
     }
 
-    public void main(String[] args) {
-    }
+    public void main(String[] args) { }
 }
 
