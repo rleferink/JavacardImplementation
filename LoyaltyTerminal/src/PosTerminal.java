@@ -88,7 +88,7 @@ public class PosTerminal extends JPanel implements ActionListener {
     //create an array consisting of timestamp, card number, terminalID, amount of points.
     //terminal keeps track of the most recent 100 transactions
     int lastTransactionIndex = 0;
-    Byte [][] transactions = new Byte[100][4];
+    Byte [][] transactions = new Byte[100][7];
 
     private short enteredValue=0;
 
@@ -365,14 +365,23 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
 
         //store transaction
-        Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        //TODO store timestamp in transaction
-        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
-        transactions[lastTransactionIndex][0] = (byte)0;
-        transactions[lastTransactionIndex][1] = (byte)cardId;
-        transactions[lastTransactionIndex][2] = (byte)0;//TODO terminalID.getBytes();
-        transactions[lastTransactionIndex][3] = (byte)amount;
-        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
+        //Timestamp timestamp = new Timestamp(System.currentTimeMillis() / 1000);
+        int timestamp = (int)(System.currentTimeMillis() / 1000);
+        byte[] timestampByte = new byte[]{
+                (byte) (timestamp >> 24),
+                (byte) (timestamp >> 16),
+                (byte) (timestamp >> 8),
+                (byte) timestamp
+        };
+        transactions[lastTransactionIndex][0] = timestampByte[0];
+        transactions[lastTransactionIndex][1] = timestampByte[1];
+        transactions[lastTransactionIndex][2] = timestampByte[2];
+        transactions[lastTransactionIndex][3] = timestampByte[3];
+        transactions[lastTransactionIndex][4] = (byte)0;
+        transactions[lastTransactionIndex][5] = (byte)cardId;
+        transactions[lastTransactionIndex][6] = (byte)0; //TODO terminalID.getBytes();
+        transactions[lastTransactionIndex][7] = (byte)amount;
+        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3] + " " + transactions[lastTransactionIndex][4] + " " + transactions[lastTransactionIndex][5] + " " + transactions[lastTransactionIndex][6] + " " + transactions[lastTransactionIndex][7]);
         lastTransactionIndex+=1;
 
         return received;

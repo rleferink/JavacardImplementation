@@ -57,7 +57,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
     //card keeps track of the most recent 100 transactions
     int lastTransactionIndex = 0;
-    Byte [][] transactions = new Byte[100][4];
+    Byte [][] transactions = new Byte[100][7];
 
     public LoyaltyApplet() {
         enteredValue = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
@@ -320,13 +320,22 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, (short) 3);
 
         //store transaction
-        java.sql.Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
-        transactions[lastTransactionIndex][0] = (byte)0;
-        transactions[lastTransactionIndex][1] = (byte)0; //TODO: this needs to be cardID
-        transactions[lastTransactionIndex][2] = (byte)terminalId;
-        transactions[lastTransactionIndex][3] = (byte)amount;
-        System.out.println("Transaction " + lastTransactionIndex + " " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
+        int timestamp = (int)(System.currentTimeMillis() / 1000);
+        byte[] timestampByte = new byte[]{
+                (byte) (timestamp >> 24),
+                (byte) (timestamp >> 16),
+                (byte) (timestamp >> 8),
+                (byte) timestamp
+        };
+        transactions[lastTransactionIndex][0] = timestampByte[0];
+        transactions[lastTransactionIndex][1] = timestampByte[1];
+        transactions[lastTransactionIndex][2] = timestampByte[2];
+        transactions[lastTransactionIndex][3] = timestampByte[3];
+        transactions[lastTransactionIndex][4] = (byte)0;
+        transactions[lastTransactionIndex][5] = (byte)0; //TODO: this needs to be cardID
+        transactions[lastTransactionIndex][6] = (byte)terminalId;
+        transactions[lastTransactionIndex][7] = (byte)amount;
+        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3] + " " + transactions[lastTransactionIndex][4] + " " + transactions[lastTransactionIndex][5] + " " + transactions[lastTransactionIndex][6] + " " + transactions[lastTransactionIndex][7]);
         lastTransactionIndex+=1;
 
     }
