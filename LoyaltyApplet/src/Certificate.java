@@ -15,7 +15,7 @@ public class Certificate {
     private final String expiryDate;
     private PublicKey publicKey = null;
     private final byte[] certificate;
-    private final byte[] signature;
+    private byte[] signature = null;
 
     public Certificate(String ID, String issuerName, String expiryDate, PublicKey publicKey, PrivateKey privateKeyCA) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException{
         this.ID = ID;
@@ -49,11 +49,17 @@ public class Certificate {
         System.arraycopy(pubKeyLength, 0, send, 8 + IDBytes.length + 8 + issuerBytes.length + 8 + expiryBytes.length, 8);
         System.arraycopy(pubKeyBytes, 0, send, 8 + IDBytes.length + 8 + issuerBytes.length + 8 + expiryBytes.length + 8, pubKeyBytes.length);
 
-        String info = ID + issuerName + expiryDate + publicKey;
+        String info = this.ID + this.issuerName + this.expiryDate + this.publicKey;
         byte[] infoBytes = info.getBytes(StandardCharsets.UTF_8);
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(infoBytes);
-        signature = encryptCipher.doFinal(hash);
+
+        Signature sign = Signature.getInstance("SHA256withRSA");
+        sign.initSign(privateKeyCA);
+        try {
+            sign.update(infoBytes);
+            signature = sign.sign();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         byte[] signatureLength = ByteBuffer.allocate(8).putInt(signature.length).array();
 
         //Combine info and signature into certificate
@@ -77,9 +83,8 @@ public class Certificate {
         expiryDate = new String(expiryBytes, StandardCharsets.UTF_8);
         int pubKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(certificate, 8 + IDLength + 8 + issuerLength + 8 + expiryLength, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8)).getInt();
         byte[] pubKeyBytes = Arrays.copyOfRange(certificate, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8 + pubKeyLength);
-        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(certificate, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + pubKeyLength, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8 + pubKeyLength + 8)).getInt();
+        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(certificate, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8 + pubKeyLength, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8 + pubKeyLength + 8)).getInt();
         signature = Arrays.copyOfRange(certificate, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8 + pubKeyLength + 8, 8 + IDLength + 8 + issuerLength + 8 + expiryLength + 8 + pubKeyLength + 8 + signatureLength);
-
         //Use a KeyFactory to regenerate the keys from the byte arrays
         try {
             KeyFactory kf = KeyFactory.getInstance("RSA");
@@ -88,6 +93,18 @@ public class Certificate {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public boolean verifySignature(byte[] retrievedInfo, PublicKey publicKeyCA){
+        try{
+            Signature sign = Signature.getInstance("SHA256withRSA");
+            sign.initVerify(publicKeyCA);
+            sign.update(retrievedInfo);
+            return sign.verify(signature);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+        return false;
     }
 
     public byte[] getCertificate() {

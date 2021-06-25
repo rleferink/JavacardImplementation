@@ -49,6 +49,10 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     int incomingIndex = 0;
     int lengthIncoming = 0;
 
+    byte[] sending = null;
+    int sendingIndex = 0;
+    int lengthSending = 0;
+
     int counter = 1;
 
     //card keeps track of the most recent 100 transactions
@@ -92,23 +96,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 if (P1 == AppUtil.AppComState.SEND_LENGTH.mode){
                     receiveLength(apdu, buffer);
                 }
-                if (P1 == AppUtil.AppComState.SEND_INFO.mode){
+                else if (P1 == AppUtil.AppComState.SEND_INFO.mode){
                     receiveInfo(apdu, buffer);
                 }
-                if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    try {
-                        sendCertificateAndCounter(apdu, buffer);
-                    } catch (NoSuchAlgorithmException e) {
-                        e.printStackTrace();
-                    } catch (NoSuchPaddingException e) {
-                        e.printStackTrace();
-                    } catch (InvalidKeyException e) {
-                        e.printStackTrace();
-                    } catch (IllegalBlockSizeException e) {
-                        e.printStackTrace();
-                    } catch (BadPaddingException e) {
-                        e.printStackTrace();
-                    }
+                else if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
+                    sendCertificateAndCounter(apdu, buffer);
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
@@ -120,19 +112,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case SPEND:
                 currentMode= AppUtil.AppMode.SPEND;
                 if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    try {
-                        sendCertificateAndCounter(apdu, buffer);
-                    } catch (NoSuchAlgorithmException e) {
-                        e.printStackTrace();
-                    } catch (NoSuchPaddingException e) {
-                        e.printStackTrace();
-                    } catch (InvalidKeyException e) {
-                        e.printStackTrace();
-                    } catch (IllegalBlockSizeException e) {
-                        e.printStackTrace();
-                    } catch (BadPaddingException e) {
-                        e.printStackTrace();
-                    }
+                    sendCertificateAndCounter(apdu, buffer);
                     System.out.println("");
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
@@ -150,13 +130,16 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 if (P1 == AppUtil.AppComState.SEND_LENGTH.mode){
                     receiveLength(apdu, buffer);
                 }
-                if (P1 == AppUtil.AppComState.SEND_INFO.mode){
+                else if (P1 == AppUtil.AppComState.SEND_INFO.mode){
                     receiveInfo(apdu, buffer);
                 }
-                if (P1 == AppUtil.AppComState.PROCESS_INFO.mode){
+                else if (P1 == AppUtil.AppComState.PROCESS_INFO.mode){
                     acceptInfoPersonalize(apdu, buffer);
                 }
                 break;
+            case DATA_SENDING:
+                currentMode = AppUtil.AppMode.DATA_SENDING;
+                sendData(apdu, buffer);
             default:
                 ISOException.throwIt(SW_INS_NOT_SUPPORTED);
         }
@@ -242,7 +225,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, le);
     }
 
-    private void sendCertificateAndCounter(APDU apdu, byte[] buffer) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    private void sendCertificateAndCounter(APDU apdu, byte[] buffer) {
         //Get information out of incoming
         int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
         byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength);
@@ -250,41 +233,58 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength, 8 + IDLength + 8)).getInt();
         byte[] certificateBytesTerminal = Arrays.copyOfRange(incoming, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
 
-        //TODO Verify certificate by creating a signature of info
+        //Make a certificate object from the byte array and extract data
         Certificate certificateTerminalCheck = new Certificate(certificateBytesTerminal);
         String expiryDate = certificateTerminalCheck.getExpiryDate();
         String issuerName = certificateTerminalCheck.getIssuerName();
-        byte[] signatureCheck = certificateTerminalCheck.getSignature();
         PublicKey publicKeyTerminal = certificateTerminalCheck.getPublickKey();
 
+        //Combine extracted data to verify
         String info = terminalID + issuerName + expiryDate + publicKeyTerminal;
         byte[] infoBytes = info.getBytes(StandardCharsets.UTF_8);
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(infoBytes);
 
-        Cipher decryptCipher = Cipher.getInstance("RSA");
-        decryptCipher.init(Cipher.DECRYPT_MODE,publicKeyCA);
-        byte[] decryptedSignature = decryptCipher.doFinal(signatureCheck);
-
-        if(hash == decryptedSignature){
+        //Verify the signature
+        if(certificateTerminalCheck.verifySignature(infoBytes, publicKeyCA)){
             System.out.println("certificate POS terminal is valid");
         }
         else{
             System.out.println("certificate POS terminal is NOT valid");
-            return;
+            //TODO Respond with a response APDU instead of returning
+            //return;
         }
 
-        //certificate == signature of certificate?
-
         //return counter + certificate
-        byte[] send = new byte[8 + certificate.length];
-        System.out.println("length send certificate: " + certificate.length);
-        byte[] counterArray = bigIntToByteArray(counter);
-        System.arraycopy(counterArray, 0, send, 0, 8);
-        System.arraycopy(certificate, 0, send, 8, certificate.length);
-        apdu.setOutgoingLength((short) 30); // Must be the same as expected length at i4 at the caller.
-        System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) 30);
+        apdu.setOutgoing();
+        sending = new byte[8 + certificate.length];
+        lengthSending = 8 + certificate.length;
+        byte[] counterArray = ByteBuffer.allocate(8).putInt(counter).array();
+        System.arraycopy(counterArray, 0, sending, 0, 8);
+        System.arraycopy(certificate, 0, sending, 8, certificate.length);
+
+        apdu.setOutgoingLength((short) 250);
+        apdu.sendBytesLong(sending, (short) sendingIndex, (short) 250);
+        sendingIndex += 250;
+        ISOException.throwIt((short) 0x6100);
+        /*int i;
+        for(i = 0; i < (send.length / 250) * 250; i += 250){
+            System.arraycopy(send, i, buffer, 0, 250);
+            apdu.sendBytes((short) 0, (short) 250);
+        }
+        System.arraycopy(send, i, buffer, 0, (send.length - i));
+        apdu.sendBytes((short) 0, (short) (send.length - i));*/
+    }
+
+    private void sendData(APDU apdu, byte[] buffer){
+        apdu.setOutgoing();
+        if((lengthSending - sendingIndex) > 250){
+            apdu.setOutgoingLength((short) 250);
+            apdu.sendBytesLong(sending, (short) sendingIndex, (short) 250);
+            sendingIndex += 250;
+            ISOException.throwIt((short) 0x6100);
+        }
+        apdu.setOutgoingLength((short) (lengthSending - sendingIndex));
+        apdu.sendBytesLong(sending, (short) sendingIndex, (short) (lengthSending - sendingIndex));
+        ISOException.throwIt((short) 0x9000);
     }
 
     private byte[] bigIntToByteArray (int i){

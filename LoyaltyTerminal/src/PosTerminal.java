@@ -77,6 +77,11 @@ public class PosTerminal extends JPanel implements ActionListener {
     static PublicKey publicKeyCA;
     static KeyPair pairPosTerminal;
 
+    int counter;
+
+    byte[] longResponse = new byte[0];
+    int longResponseLength = 0;
+
     //String POSTerminal = "certificate POSTerminal";
     String terminalID = null;
 
@@ -237,14 +242,19 @@ public class PosTerminal extends JPanel implements ActionListener {
                     switch (appMode){
                         case ADD:
                             //step 3-6 certificates
-                            received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.ADD.mode);
+                            boolean correctCertificateAdd = sendAndCheckCertificate(AppUtil.AppMode.ADD.mode);
 
-                            //step 12 get amount
-                            amount = enteredValue;
-                            System.out.println("Amount entered: " + amount);
+                            if(correctCertificateAdd){
+                                System.out.println("Certificate Card is valid");
+                                //step 12 get amount
+                                amount = enteredValue;
+                                System.out.println("Amount entered: " + amount);
 
-                            //step 13 increase balance on the card
-                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.ADD.mode, transactions);
+                                //step 13 increase balance on the card
+                                changeBalance(counter, received_data,amount, AppUtil.AppMode.ADD.mode, transactions);
+                            } else {
+                                System.out.println("Certificate Card is NOT valid");
+                            }
 
                             setText("Remove card");
                             break;
@@ -256,13 +266,14 @@ public class PosTerminal extends JPanel implements ActionListener {
                             System.out.println("Amount entered: " + amount);
 
                             //step 4: send certificate
-                            received_data = sendAndCheckCertificate(counter, received_data, AppUtil.AppMode.SPEND.mode);
+                            boolean correctCertificateSpend = sendAndCheckCertificate(AppUtil.AppMode.SPEND.mode);
+                            if(correctCertificateSpend){
+                                //step 12: any revoked transactions in the database?
+                                //TODO: !!!!!!!
 
-                            //step 12: any revoked transactions in the database?
-                            //TODO: !!!!!!!
-
-                            //step 13: is balance >= n? | counter +=1
-                            received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.SPEND.mode, transactions);
+                                //step 13: is balance >= n? | counter +=1
+                                received_data = changeBalance(counter, received_data,amount, AppUtil.AppMode.SPEND.mode, transactions);
+                            }
 
                             setText("Remove card");
                             System.out.println("End spending protocol");
@@ -367,21 +378,7 @@ public class PosTerminal extends JPanel implements ActionListener {
         return received;
     }
 
-    void sendInfoToCard(String terminalID, Certificate certificateTerminal){
-        //Prepare info for sending
-        byte[] terminalIDBytes = terminalID.getBytes(StandardCharsets.UTF_8);
-        byte[] IDLength = ByteBuffer.allocate(8).putInt(terminalIDBytes.length).array();
-        byte[] certificateBytes = certificateTerminal.getCertificate();
-        byte[] certLength = ByteBuffer.allocate(8).putInt(certificateBytes.length).array();
-        int lengthMessage = 8 + terminalIDBytes.length + 8 + certificateBytes.length;
-
-        //Combine info into one array
-        byte[] send = new byte[lengthMessage];
-        System.arraycopy(IDLength, 0, send, 0, IDLength.length);
-        System.arraycopy(terminalIDBytes, 0, send, 8, terminalIDBytes.length);
-        System.arraycopy(certLength, 0, send, 8 + terminalIDBytes.length, certLength.length);
-        System.arraycopy(certificateBytes, 0, send, 8 + terminalIDBytes.length + 8, certificateBytes.length);
-
+    void sendInfoToCard(byte[] send, int lengthMessage){
         //Cut combined info into smaller pieces for a commandAPDU
         ArrayList<byte[]> sendingChunks = new ArrayList<>();
         int i;
@@ -416,9 +413,28 @@ public class PosTerminal extends JPanel implements ActionListener {
                 e.printStackTrace();
             }
         }
+    }
+
+    boolean sendAndCheckCertificate(byte state){
+        //Prepare info for sending
+        byte[] terminalIDBytes = terminalID.getBytes(StandardCharsets.UTF_8);
+        byte[] IDLength = ByteBuffer.allocate(8).putInt(terminalIDBytes.length).array();
+        byte[] certificateBytes = certificatePOS.getCertificate();
+        byte[] certLength = ByteBuffer.allocate(8).putInt(certificateBytes.length).array();
+        int lengthMessage = 8 + terminalIDBytes.length + 8 + certificateBytes.length;
+
+        //Combine info into one array
+        byte[] send = new byte[lengthMessage];
+        System.arraycopy(IDLength, 0, send, 0, IDLength.length);
+        System.arraycopy(terminalIDBytes, 0, send, 8, terminalIDBytes.length);
+        System.arraycopy(certLength, 0, send, 8 + terminalIDBytes.length, certLength.length);
+        System.arraycopy(certificateBytes, 0, send, 8 + terminalIDBytes.length + 8, certificateBytes.length);
+
+        //send ID and certificate posTerminal to card
+        sendInfoToCard(send, send.length);
 
         //Send command to process the info sent to the card
-        CommandAPDU apdu_processInfo = new CommandAPDU(0x00, AppUtil.AppMode.ADD.mode, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0, new byte[0], 1);
+        CommandAPDU apdu_processInfo = new CommandAPDU(0x00, state, AppUtil.AppComState.SEND_CERTIFICATE.mode, 0);
         ResponseAPDU apdu_res = null;
         try {
             apdu_res = sendCommandAPDU(apdu_processInfo);
@@ -427,37 +443,26 @@ public class PosTerminal extends JPanel implements ActionListener {
             e.printStackTrace();
         }
 
-        ResponseAPDU res_certificate = null;
-        try {
-            res_certificate = sendCommandAPDU(apdu_processInfo);
-        } catch (CardException e) {
-            System.out.println((MSG_ERROR));
-            e.printStackTrace();
-        }
-        byte[] received = res_certificate.getData();
-        short buffer_size = (short) received.length;
-    }
+        //Retrieve data from response APDU
+        //byte[] received = apdu_res.getData();
+        //int buffer_size = received.length;
+        //System.out.println(buffer_size);
+        counter = ByteBuffer.wrap(Arrays.copyOfRange(longResponse, 0, 8)).getInt();
+        byte[] certificateCard = Arrays.copyOfRange(longResponse, 8, longResponseLength);
 
-    byte[] sendAndCheckCertificate(byte[] counter, byte[] received, byte state){
-        //send certificate posTerminal to card
-        sendInfoToCard(terminalID, certificatePOS);
+        //Make a certificate object from the byte array and extract data
+        Certificate certificateCardCheck = new Certificate(certificateCard);
+        String cardID = certificateCardCheck.getID();
+        String issuerName = certificateCardCheck.getIssuerName();
+        String expiryDate = certificateCardCheck.getExpiryDate();
+        PublicKey publicKeyCard = certificateCardCheck.getPublickKey();
 
-        //TODO: receive certificate of card
+        //Combine extracted data to verify
+        String info = cardID + issuerName + expiryDate + publicKeyCard;
+        byte[] infoBytes = info.getBytes(StandardCharsets.UTF_8);
 
-
-        //TODO: Change to accommodate new certificate
-        //String certificate_card = new String(Arrays.copyOfRange(received,1,buffer_size));
-       /* if(received[0] == counter[0] + 1){
-            System.out.println("Counter CORRECT");
-        }
-        else{
-            System.out.println("Counter INCORRECT");
-            return null;
-        }
-
-        */
-
-        return received;
+        //Verify the signature
+        return certificateCardCheck.verifySignature(infoBytes, publicKeyCA);
     }
 
     ResponseAPDU sendCommandAPDU(CommandAPDU capdu) throws CardException {
@@ -465,11 +470,18 @@ public class PosTerminal extends JPanel implements ActionListener {
 
         byte[] data = rapdu.getData();
         int sw = rapdu.getSW();
-        if (sw != 0x9000) {
+        if (sw == 0x6100) {
+            System.out.println(sw);
+            byte[] responseData = new byte[longResponseLength + data.length];
+            System.arraycopy(longResponse, 0, responseData, 0, longResponseLength);
+            System.arraycopy(data, 0, responseData, longResponseLength, data.length);
+            longResponse = responseData;
+            longResponseLength = responseData.length;
+            sendCommandAPDU(new CommandAPDU(0x00, AppUtil.AppMode.DATA_SENDING.mode, 0,0));
+        }
+        else if (sw != 0x9000) {
+            System.out.println(sw);
             setText(MSG_ERROR);
-        } else if (data.length > 4) {
-            setText((short) (((data[1] & 0x000000FF) << 32) | ((data[2] & 0x000000FF) << 16) |
-                    ((data[3] & 0x000000FF) << 8) | (data[4] & 0x000000FF)));
         }
         return rapdu;
     }

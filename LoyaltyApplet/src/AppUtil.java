@@ -3,7 +3,8 @@ public class AppUtil {
         ADD((byte) 0x10),
         SPEND((byte) 0x20),
         VIEW((byte) 0x30),
-        PERSONALIZE((byte) 0x40);
+        PERSONALIZE((byte) 0x40),
+        DATA_SENDING((byte) 0x50);
 
         public final Byte mode;
 
