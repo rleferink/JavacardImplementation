@@ -1,28 +1,19 @@
 import com.licel.jcardsim.smartcardio.CardSimulator;
-import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
-import javacard.framework.AID;
 
 import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.*;
 import javax.swing.*;
-import javax.xml.crypto.Data;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Random;
-
 
 public class PersonalizationTerminal extends JPanel implements ActionListener {
     JTextField display;
@@ -33,15 +24,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     static final int DISPLAY_WIDTH = 20;
 
     static final String MSG_ERROR = "    -- error --     ";
-    static final String MSG_DISABLED = " -- insert card --  ";
-    static final String MSG_INVALID = " -- invalid card -- ";
-
-    static final byte[] CALC_APPLET_AID = { (byte) 0x3B, (byte) 0x29,
-            (byte) 0x63, (byte) 0x61, (byte) 0x6C, (byte) 0x63, (byte) 0x01 };
-    static final String CALC_APPLET_AID_string = "3B2963616C6301";
-
-    static final CommandAPDU SELECT_APDU = new CommandAPDU(
-            (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
 
     Card card;
     CardChannel applet;
@@ -246,7 +228,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             setText(MSG_ERROR);
             System.out.println(sw);
         }
-
         return rapdu;
     }
 
@@ -256,27 +237,3 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
         }
     }
 }
-
-//Example code to encrypt
-            /*
-            String secretMessage = "1234";
-            Cipher encryptCipher = Cipher.getInstance("RSA");
-            encryptCipher.init(Cipher.ENCRYPT_MODE,privateKeyCA);
-
-            //create byte[] to store encrypted message
-            byte[] secretMessageBytes = secretMessage.getBytes(StandardCharsets.UTF_8);
-            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
-
-            //create decrypt cipher
-            Cipher decryptCipher = Cipher.getInstance("RSA");
-            decryptCipher.init(Cipher.DECRYPT_MODE, publicKeyCA);
-
-            //create byte[] to store decrypted message and then into a string
-            byte[] decryptedMessageBytes = decryptCipher.doFinal(encryptedMessageBytes);
-            String decryptedMessage = new String(decryptedMessageBytes, StandardCharsets.UTF_8);
-
-            //check if original message is equal to the decrypted message
-            if(secretMessage.equals(decryptedMessage)){
-                System.out.println("Loyalty Applet: messages are equal");
-            };
-             */

@@ -8,7 +8,7 @@ public class AppUtil {
 
         public final Byte mode;
 
-        private AppMode(Byte mode) {
+        AppMode(Byte mode) {
             this.mode = mode;
         }
     }
@@ -17,13 +17,13 @@ public class AppUtil {
     enum AppComState {
         SEND_CERTIFICATE((byte) 0x10),
         SEND_AMOUNT_CHECK((byte) 0x11),
-        ACK_ONLINE((byte) 0x20),
         SEND_LENGTH((byte) 0x41),
         SEND_INFO((byte) 0x42),
         PROCESS_INFO((byte) 0x43);
+
         public final Byte mode;
 
-        private AppComState(Byte mode) {
+        AppComState(Byte mode) {
             this.mode = mode;
         }
     }

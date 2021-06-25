@@ -22,19 +22,9 @@ import javax.crypto.Cipher;
 import static javacard.framework.JCSystem.makeTransientByteArray;
 
 public class LoyaltyApplet extends Applet implements ISO7816 {
-    private static final byte X = 0;
     private AppUtil.AppMode currentMode;
 
-    private short[] enteredValue;
-    private short m;
-    private byte[] lastOp;
-    private boolean[] lastKeyWasDigit;
-    private short balance = 100; // Initial card balance
-
-    // code of instruction byte in the command APDU header
-    final static byte SEND_CERTIFICATE = (byte) 0x20;
-    final static byte ACK_ONLINE = (byte) 0x21;
-    final static byte DECREASE_BALANCE = (byte) 0x22;
+    private short balance = 0; // Initial card balance
 
     boolean personalized = false;
 
@@ -57,13 +47,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
     //card keeps track of the most recent 100 transactions
     int lastTransactionIndex = 0;
-    Byte [][] transactions = new Byte[100][7];
+    Byte [][] transactions = new Byte[100][8];
 
     public LoyaltyApplet() {
-        enteredValue = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
-        lastOp = makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
-        lastKeyWasDigit = JCSystem.makeTransientBooleanArray((short) 1, JCSystem.CLEAR_ON_RESET);
-        m = 0;
         register();
     }
 
@@ -94,30 +80,32 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 //instruction: ADD
                 currentMode = AppUtil.AppMode.ADD;
                 if (P1 == AppUtil.AppComState.SEND_LENGTH.mode){
-                    receiveLength(apdu, buffer);
+                    receiveLength(apdu, buffer, currentMode.mode);
                 }
                 else if (P1 == AppUtil.AppComState.SEND_INFO.mode){
                     receiveInfo(apdu, buffer);
                 }
                 else if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    sendCertificateAndCounter(apdu, buffer);
-                    System.out.println("");
+                    sendCertificateAndCounter(apdu);
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    IncreaseBalance(apdu, buffer, cardID, transactions);
-                    System.out.println("");
+                    IncreaseBalance(apdu, buffer);
                 }
                 break;
 
             case SPEND:
                 currentMode= AppUtil.AppMode.SPEND;
-                if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
-                    sendCertificateAndCounter(apdu, buffer);
-                    System.out.println("");
+                if (P1 == AppUtil.AppComState.SEND_LENGTH.mode){
+                    receiveLength(apdu, buffer, currentMode.mode);
+                }
+                else if (P1 == AppUtil.AppComState.SEND_INFO.mode){
+                    receiveInfo(apdu, buffer);
+                }
+                else if (P1 == AppUtil.AppComState.SEND_CERTIFICATE.mode){
+                    sendCertificateAndCounter(apdu);
                 }
                 else if (P1 == AppUtil.AppComState.SEND_AMOUNT_CHECK.mode){
-                    checkAmountAndDecreaseBalance(apdu, buffer, cardID, transactions);
-                    System.out.println("");
+                    checkAmountAndDecreaseBalance(apdu, buffer);
                 }
                 break;
 
@@ -128,7 +116,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             case PERSONALIZE:
                 currentMode = AppUtil.AppMode.PERSONALIZE;
                 if (P1 == AppUtil.AppComState.SEND_LENGTH.mode){
-                    receiveLength(apdu, buffer);
+                    receiveLength(apdu, buffer, currentMode.mode);
                 }
                 else if (P1 == AppUtil.AppComState.SEND_INFO.mode){
                     receiveInfo(apdu, buffer);
@@ -139,15 +127,15 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
                 break;
             case DATA_SENDING:
                 currentMode = AppUtil.AppMode.DATA_SENDING;
-                sendData(apdu, buffer);
+                sendData(apdu);
             default:
                 ISOException.throwIt(SW_INS_NOT_SUPPORTED);
         }
     }
 
-    private void receiveLength(APDU apdu, byte[] buffer){
+    private void receiveLength(APDU apdu, byte[] buffer, byte state){
         //Return directly when already personalized with a value of 0
-        if(personalized) {
+        if(personalized && state == AppUtil.AppMode.PERSONALIZE.mode) {
             short le = apdu.setOutgoing();
             apdu.setOutgoingLength(le);
             byte[] send_answer = {(byte)0};
@@ -225,7 +213,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, le);
     }
 
-    private void sendCertificateAndCounter(APDU apdu, byte[] buffer) {
+    private void sendCertificateAndCounter(APDU apdu) {
         //Get information out of incoming
         int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
         byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength);
@@ -249,11 +237,10 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
         else{
             System.out.println("certificate POS terminal is NOT valid");
-            //TODO Respond with a response APDU instead of returning
-            //return;
+            //TODO Respond with a response APDU
         }
 
-        //return counter + certificate
+        //return counter + certificate with multiple APDUs
         apdu.setOutgoing();
         sending = new byte[8 + certificate.length];
         lengthSending = 8 + certificate.length;
@@ -265,16 +252,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytesLong(sending, (short) sendingIndex, (short) 250);
         sendingIndex += 250;
         ISOException.throwIt((short) 0x6100);
-        /*int i;
-        for(i = 0; i < (send.length / 250) * 250; i += 250){
-            System.arraycopy(send, i, buffer, 0, 250);
-            apdu.sendBytes((short) 0, (short) 250);
-        }
-        System.arraycopy(send, i, buffer, 0, (send.length - i));
-        apdu.sendBytes((short) 0, (short) (send.length - i));*/
     }
 
-    private void sendData(APDU apdu, byte[] buffer){
+    private void sendData(APDU apdu){
         apdu.setOutgoing();
         if((lengthSending - sendingIndex) > 250){
             apdu.setOutgoingLength((short) 250);
@@ -287,37 +267,39 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         ISOException.throwIt((short) 0x9000);
     }
 
-    private byte[] bigIntToByteArray (int i){
-        BigInteger bigInt = BigInteger.valueOf(i);
-        return bigInt.toByteArray();
-    }
+    private void IncreaseBalance(APDU apdu, byte[] buffer){
+        //Get information out of incoming buffer
+        counter = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
+        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8, 8 + 8)).getInt();
+        byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8 + 8, 8 + 8 + IDLength);
+        terminalID = terminalIDBytes;
+        int amount = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength, 8 + 8 + IDLength + 8)).getInt();
+        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
+        byte[] signature = Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
 
-    private void IncreaseBalance(APDU apdu, byte[] buffer, byte[] cardID, Byte[][] transactions){
-        short le = -1;
-        le = apdu.setOutgoing();
-        if (le < 3) {
-            ISOException.throwIt((short) (SW_WRONG_LENGTH | 4));
-        }
+        //TODO: Verify the signature
 
-        short counter = (short) buffer[5];
-        int terminalId = buffer[6];
-        short amount = (short) buffer[7];
-        byte[] yesNo = {(byte)0};
-        System.out.println("Amount: " + amount);
         JCSystem.beginTransaction(); // Make Persistent Transaction
         balance += amount;
         JCSystem.commitTransaction();
 
+        apdu.setOutgoing();
+
         counter += 1;
-        System.out.println("C -> T: " + counter);
-        byte[] counterr = {(byte) counter};
-        byte[] send = new byte[counterr.length + cardID.length + yesNo.length];
-        System.arraycopy(counterr, 0, send, 0, counterr.length);
-        System.arraycopy(cardID, 0, send, counterr.length, cardID.length);
-        System.arraycopy(yesNo, 0, send, counterr.length + cardID.length, yesNo.length);
-        apdu.setOutgoingLength((short) 3); // Must be the same as expected length at i4 at the caller.
+
+        byte[] counter = ByteBuffer.allocate(8).putInt(this.counter).array();
+        byte[] cardIDBytes = cardID;
+        byte[] cardIDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
+        byte[] padding = {0};
+
+        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1];
+        System.arraycopy(counter, 0, send, 0, 8);
+        System.arraycopy(cardIDLength, 0, send, 8, 8);
+        System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
+        System.arraycopy(padding, 0, send, 8 + 8 + cardIDBytes.length, 1);
+        apdu.setOutgoingLength((short) send.length);
         System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) 3);
+        apdu.sendBytes((short) 0, (short) send.length);
 
         //store transaction
         int timestamp = (int)(System.currentTimeMillis() / 1000);
@@ -332,58 +314,67 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         transactions[lastTransactionIndex][2] = timestampByte[2];
         transactions[lastTransactionIndex][3] = timestampByte[3];
         transactions[lastTransactionIndex][4] = (byte)0;
-        transactions[lastTransactionIndex][5] = (byte)0; //TODO: this needs to be cardID
-        transactions[lastTransactionIndex][6] = (byte)terminalId;
+        transactions[lastTransactionIndex][5] = cardID[0]; //TODO: Add the correct cardID
+        transactions[lastTransactionIndex][6] = terminalID[0]; //TODO: Add the correct terminalID
         transactions[lastTransactionIndex][7] = (byte)amount;
-        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3] + " " + transactions[lastTransactionIndex][4] + " " + transactions[lastTransactionIndex][5] + " " + transactions[lastTransactionIndex][6] + " " + transactions[lastTransactionIndex][7]);
         lastTransactionIndex+=1;
 
     }
 
-    private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer, byte[] cardID, Byte[][] transactions){
-        short le = -1;
-        le = apdu.setOutgoing();
-        if (le < 2) {
-            ISOException.throwIt((short) (SW_WRONG_LENGTH | 4));
-        }
+    private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
+        //Get information out of incoming buffer
+        counter = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
+        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8, 8 + 8)).getInt();
+        byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8 + 8, 8 + 8 + IDLength);
+        terminalID = terminalIDBytes;
+        int amount =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength, 8 + 8 + IDLength + 8)).getInt();
+        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
+        byte[] signature = Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
 
-        short counter = (short) buffer[5];
-        int terminalId = buffer[6];
-        short amount = (short) buffer[7];
-        byte[] yesNo = {(byte)0};
-        System.out.println(amount);
+        //TODO: Verify the signature
+
+        byte[] success = {(byte)0};
+
         JCSystem.beginTransaction();
         if(amount <= balance){
-            System.out.println("Amount <= balance");
-            yesNo[0] = (byte)1;
+            success[0] = (byte)1;
             balance -= amount;
-        }
-        else{
-            return;
         }
         JCSystem.commitTransaction();
 
+        apdu.setOutgoing();
+
         counter += 1;
-        System.out.println("C -> T: " + counter);
-        //send counter + cardId + yes/no
-        byte[] counterr = {(byte) counter};
-        byte[] send = new byte[counterr.length + cardID.length + yesNo.length];
-        System.arraycopy(counterr, 0, send, 0, counterr.length);
-        System.arraycopy(cardID, 0, send, counterr.length, cardID.length);
-        System.arraycopy(yesNo, 0, send, counterr.length + cardID.length, yesNo.length);
-        apdu.setOutgoingLength((short) 3); // Must be the same as expected length at i4 at the caller.
+
+        byte[] counter = ByteBuffer.allocate(8).putInt(this.counter).array();
+        byte[] cardIDBytes = cardID;
+        byte[] cardIDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
+
+        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1];
+        System.arraycopy(counter, 0, send, 0, 8);
+        System.arraycopy(cardIDLength, 0, send, 8, 8);
+        System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
+        System.arraycopy(success, 0, send, 8 + 8 + cardIDBytes.length, 1);
+        apdu.setOutgoingLength((short) send.length);
         System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) 3);
+        apdu.sendBytes((short) 0, (short) send.length);
 
         //store transaction
-        //TODO store timestamp in transaction
-        java.sql.Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        //transactions[lastTransactionIndex][0] = timestamp.toString().getBytes();
-        transactions[lastTransactionIndex][0] = (byte)0;
-        transactions[lastTransactionIndex][1] = (byte)0; //TODO: this needs to be cardID
-        transactions[lastTransactionIndex][2] = (byte)terminalId;
-        transactions[lastTransactionIndex][3] = (byte)amount;
-        System.out.println("Transaction " + lastTransactionIndex + ": " + transactions[lastTransactionIndex][0] + " " + transactions[lastTransactionIndex][1] + " " + transactions[lastTransactionIndex][2] + " " + transactions[lastTransactionIndex][3]);
+        int timestamp = (int)(System.currentTimeMillis() / 1000);
+        byte[] timestampByte = new byte[]{
+                (byte) (timestamp >> 24),
+                (byte) (timestamp >> 16),
+                (byte) (timestamp >> 8),
+                (byte) timestamp
+        };
+        transactions[lastTransactionIndex][0] = timestampByte[0];
+        transactions[lastTransactionIndex][1] = timestampByte[1];
+        transactions[lastTransactionIndex][2] = timestampByte[2];
+        transactions[lastTransactionIndex][3] = timestampByte[3];
+        transactions[lastTransactionIndex][4] = (byte)0;
+        transactions[lastTransactionIndex][5] = cardID[0]; //TODO: Add the correct cardID
+        transactions[lastTransactionIndex][6] = terminalID[0]; //TODO: Add the correct terminalID
+        transactions[lastTransactionIndex][7] = (byte)amount;
         lastTransactionIndex+=1;
     }
 
@@ -395,44 +386,4 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, le);
     }
 
-
-/*    private void send_certificate_and_nonce(byte[] buffer, APDU apdu){
-        System.out.println("STEP 1 - send certificate and nonce");
-        //byte[] buffer = apdu.getBuffer();
-        //short byteRead = (apdu.setIncomingAndReceive());
-        //System.out.println("byteRead: " + byteRead);
-        //if (byteRead != 1) ISOException.throwIt(SW_WRONG_LENGTH);
-        //TODO: receive and validate certificate of terminal
-        //byte certificate = buffer[OFFSET_CDATA]
-
-        //TODO: send certificate of card back with nonce
-        short nonce = (short) 11;
-        System.out.println("length of buffer: " + buffer.length);
-        apdu.setOutgoing();
-        System.out.println("1");
-        try {
-            //Util.setShort(buffer, (short) 0, nonce);
-        }
-        catch (TransactionException c){
-            System.out.println("Exception");
-            return;
-        }
-        System.out.println("2");
-        apdu.setOutgoingLength((short)2);
-        System.out.println("3");
-        apdu.sendBytes((short) 0, (short)2);
-        System.out.println("Bytes sent back to Terminal\n");
-    }
- */
-
-
-    byte[] getBytes(BigInteger big) {
-        byte[] data = big.toByteArray();
-        if (data[0] == 0) {
-            byte[] tmp = data;
-            data = new byte[tmp.length - 1];
-            System.arraycopy(tmp, 1, data, 0, tmp.length - 1);
-        }
-        return data;
-    }
 }

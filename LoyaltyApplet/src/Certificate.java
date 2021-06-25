@@ -117,7 +117,5 @@ public class Certificate {
 
     public String getIssuerName() { return issuerName; }
 
-    public byte[] getSignature() { return signature; }
-
     public PublicKey getPublickKey() { return publicKey; }
 }

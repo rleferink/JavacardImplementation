@@ -32,7 +32,6 @@ public class CardManager extends JPanel implements ActionListener {
 
     static final byte[] CALC_APPLET_AID = { (byte) 0x3B, (byte) 0x29,
             (byte) 0x63, (byte) 0x61, (byte) 0x6C, (byte) 0x63, (byte) 0x01 };
-    static final String CALC_APPLET_AID_string = "3B2963616C6301";
     static final CommandAPDU SELECT_APDU = new CommandAPDU(
             (byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, CALC_APPLET_AID);
 
@@ -41,7 +40,6 @@ public class CardManager extends JPanel implements ActionListener {
     static PosTerminal posTerminal;
     static PersonalizationTerminal personalizationTerminal;
     Card card;
-    // Obtain a CardTerminal
     static CardTerminals cardTerminals = CardTerminalSimulator.terminals("POS Terminal", "Personalization Terminal");
 
     CardSimulator simulator;
