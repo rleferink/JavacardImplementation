@@ -116,14 +116,13 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             String cardID = "card1";
             Certificate certificateCard = new Certificate(cardID, "CA", "01-01-2022", pairCard.getPublic(), pairCA.getPrivate());
 
-            //Create authentication code and store info in database
-            String authenticationCode = "authCode1";
+            //Create random authentication code and store info in database
+            byte[] auth = new byte[1];
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] authCodeHash = digest.digest(authenticationCode.getBytes(StandardCharsets.UTF_8));
+            byte[] authCodeHash = digest.digest(auth);
             database.addCard(cardID, authCodeHash, certificateCard);
 
             sendInfoToCard(cardID, certificateCard, pairCard, pairCA.getPublic());
-
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
             ex.printStackTrace();
         }
