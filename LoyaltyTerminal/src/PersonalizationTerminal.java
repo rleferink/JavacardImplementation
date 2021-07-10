@@ -1,5 +1,4 @@
 import com.licel.jcardsim.smartcardio.CardSimulator;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
@@ -74,8 +73,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
     void setText(String txt) {
         display.setText(txt);
     }
-
-    public static void main(String[] args) { }
 
     void buildGUI(JFrame parent) {
         setLayout(new BorderLayout());
@@ -235,4 +232,6 @@ public class PersonalizationTerminal extends JPanel implements ActionListener {
             System.exit(0);
         }
     }
+
+    public static void main(String[] args) { }
 }

@@ -1,6 +1,3 @@
-import javacard.framework.AID;
-import javacard.framework.ISO7816;
-
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -12,27 +9,17 @@ import java.awt.event.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
-import javax.smartcardio.CardTerminals;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import javax.swing.*;
-
-import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.smartcardio.CardSimulator;
-import javacard.framework.Applet;
 
 import java.math.BigInteger;
 /**
@@ -77,11 +64,10 @@ public class PosTerminal extends JPanel implements ActionListener {
     int lastTransactionIndex = 0;
     Byte [][] transactions = new Byte[100][8];
 
-    private short enteredValue=0;
+    private short enteredValue = 0;
 
     JTextField display;
     JPanel keypad;
-
 
     public PosTerminal(CardTerminal PosTerminal, CardSimulator simulator, Database database, PublicKey publicKeyCA, KeyPair pairPosTerminal, Certificate certificatePOS, Card card) {
         JFrame posFrame = new JFrame("POS Terminal");
@@ -91,7 +77,6 @@ public class PosTerminal extends JPanel implements ActionListener {
         posFrame.setResizable(false);
         posFrame.pack();
         posFrame.setVisible(true);
-
 
         this.certificatePOS = certificatePOS;
         this.terminalID = certificatePOS.getID();
@@ -366,9 +351,6 @@ public class PosTerminal extends JPanel implements ActionListener {
             return;
         }
 
-        //CardID to be used for storing transactions
-        String cardID = new String(cardIDBytes, StandardCharsets.UTF_8);
-
         //When spending points, check whether it was successful
         if(succes[0] == (byte)1 && state == AppUtil.AppMode.SPEND.mode){
             System.out.println("Balance high enough");
@@ -386,14 +368,15 @@ public class PosTerminal extends JPanel implements ActionListener {
                 (byte) (timestamp >> 8),
                 (byte) timestamp
         };
+
         transactions[lastTransactionIndex][0] = timestampByte[0];
         transactions[lastTransactionIndex][1] = timestampByte[1];
         transactions[lastTransactionIndex][2] = timestampByte[2];
         transactions[lastTransactionIndex][3] = timestampByte[3];
-        transactions[lastTransactionIndex][4] = (byte)0;
-        transactions[lastTransactionIndex][5] = cardIDBytes[0]; //TODO Add the correct cardID
-        transactions[lastTransactionIndex][6] = terminalIDBytes[0]; //TODO Add the correct terminalID
-        transactions[lastTransactionIndex][7] = (byte)amount;
+        transactions[lastTransactionIndex][4] = cardIDBytes[0];
+        transactions[lastTransactionIndex][5] = terminalIDBytes[0];
+        transactions[lastTransactionIndex][6] = (byte)amount;
+        transactions[lastTransactionIndex][7] = (byte)lastTransactionIndex;
         lastTransactionIndex+=1;
 
         return;

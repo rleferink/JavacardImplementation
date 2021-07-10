@@ -313,10 +313,10 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         transactions[lastTransactionIndex][1] = timestampByte[1];
         transactions[lastTransactionIndex][2] = timestampByte[2];
         transactions[lastTransactionIndex][3] = timestampByte[3];
-        transactions[lastTransactionIndex][4] = (byte)0;
-        transactions[lastTransactionIndex][5] = cardID[0]; //TODO: Add the correct cardID
-        transactions[lastTransactionIndex][6] = terminalID[0]; //TODO: Add the correct terminalID
-        transactions[lastTransactionIndex][7] = (byte)amount;
+        transactions[lastTransactionIndex][4] = cardID[0];
+        transactions[lastTransactionIndex][5] = terminalID[0];
+        transactions[lastTransactionIndex][6] = (byte)amount;
+        transactions[lastTransactionIndex][7] = (byte)lastTransactionIndex;
         lastTransactionIndex+=1;
 
     }
