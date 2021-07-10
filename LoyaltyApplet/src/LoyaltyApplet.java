@@ -237,7 +237,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         }
         else{
             System.out.println("certificate POS terminal is NOT valid");
-            //TODO Respond with a response APDU
         }
 
         //return counter + certificate with multiple APDUs
@@ -318,7 +317,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         transactions[lastTransactionIndex][6] = (byte)amount;
         transactions[lastTransactionIndex][7] = (byte)lastTransactionIndex;
         lastTransactionIndex+=1;
-
     }
 
     private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
