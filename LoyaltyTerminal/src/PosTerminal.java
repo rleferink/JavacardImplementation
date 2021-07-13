@@ -369,6 +369,7 @@ public class PosTerminal extends JPanel implements ActionListener {
                 (byte) timestamp
         };
 
+        //transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
         transactions[lastTransactionIndex][0] = timestampByte[0];
         transactions[lastTransactionIndex][1] = timestampByte[1];
         transactions[lastTransactionIndex][2] = timestampByte[2];

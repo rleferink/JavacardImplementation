@@ -19,28 +19,38 @@ import java.sql.Timestamp;
 import java.util.Arrays;
 import javax.crypto.Cipher;
 
-import static javacard.framework.JCSystem.makeTransientByteArray;
+import javacard.framework.JCSystem;
+
+import static javacard.framework.JCSystem.*;
 
 public class LoyaltyApplet extends Applet implements ISO7816 {
     private AppUtil.AppMode currentMode;
 
     private short balance = 0; // Initial card balance
+    int sequenceNumber = 0; // Total amount of transactions
 
     boolean personalized = false;
 
-    byte[] cardID = null;
-    byte[] terminalID = null;
-    byte[] certificate = null;
+    byte[] cardID = null;    // EP in persistent aka EEPROM ?? FIXED
+    //byte[] terminalID = null; // EP in transient aka RAM?? FIXED
+    byte[] terminalID = makeTransientByteArray((short) 4, CLEAR_ON_RESET);
+    //byte[] certificate = null; // EP persistent ?? FIXED
+    byte[] certificate = makeTransientByteArray((short) 610, CLEAR_ON_RESET);
     PublicKey publicKey = null;
     PrivateKey privateKey = null;
     PublicKey publicKeyCA = null;
 
-    byte[] incoming = null;
-    int incomingIndex = 0;
-    int lengthIncoming = 0;
+    //byte[] incoming = null; // EP in RAM FIXED
+    byte[] incoming = makeTransientByteArray((short)2500, CLEAR_ON_RESET);
+    int incomingIndex = 0; // EP Better as transient local variables instead of persistent fields?? Persistent is better I think
+    int lengthIncoming = 0; // EP Better as transient local variables instead of persistent fields?? Persistent is better I think
 
-    byte[] sending = null;
-    int sendingIndex = 0;
+    //byte[] sending = null; //Also TransientByteArray? FIXED
+    byte[] sending = makeTransientByteArray((short)650, CLEAR_ON_RESET);
+    int sendingIndex = 0;  // EP Better as transient local variables instead of persistent fields??
+    //    Eg use a local variable inside a method instead and pass it
+    //    around as parameter (on the stack) instead of having it
+    //    as object field - effectively a global variable - on the heap.
     int lengthSending = 0;
 
     int counter = 1;
@@ -138,7 +148,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         if(personalized && state == AppUtil.AppMode.PERSONALIZE.mode) {
             short le = apdu.setOutgoing();
             apdu.setOutgoingLength(le);
-            byte[] send_answer = {(byte)0};
+            //byte[] send_answer = {(byte)0}; // EP memory leak !! FIXED
+            byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+            send_answer[0] = 0;
             System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
             apdu.sendBytes((short) 0, le);
             return;
@@ -146,12 +158,15 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         //Retrieve the length of the incoming message and creating a new byte[] for that message
         lengthIncoming = ByteBuffer.wrap(Arrays.copyOfRange(buffer, 5, 5+ 8)).getInt();
-        incoming = new byte[lengthIncoming];
+        incoming = makeTransientByteArray((short)lengthIncoming, CLEAR_ON_DESELECT);
+        //incoming = new byte[lengthIncoming]; //incoming = makeTransient((short) lengthIncoming, ...);  //EP memory leak  && persistent ipv transient !! FIXED
         incomingIndex = 0;
 
         //Return with 1
         short le = apdu.setOutgoing();
-        byte[] send_answer = {(byte)1};
+        //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
+        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+        send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
         apdu.sendBytes((short) 0, le);
@@ -168,16 +183,27 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         //Return with 1
         short le = apdu.setOutgoing();
-        byte[] send_answer = {(byte)1};
+        //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
+        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+        send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
         apdu.sendBytes((short) 0, le);
     }
 
     private void acceptInfoPersonalize(APDU apdu, byte[] buffer) {
+
+        //EP make scratchpad array
+        //
+        //System.out.println(incoming.getClass());
+        //incoming = JCSystem.makeTransientByteArray((short) 2500, CLEAR_ON_RESET);
+        //System.out.println(incoming.getClass());
+
+        //Incoming is already a transientByteArray
+
         //Get information out of incoming
         int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
-        byte[] cardIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength);
+        byte[] cardIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength); // EP does this allocate memory??
         cardID = cardIDBytes;
         int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength, 8 + IDLength + 8)).getInt();
         byte[] certificateBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
@@ -207,7 +233,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         //Return byte 1
         short le = apdu.setOutgoing();
-        byte[] send_answer = {(byte)1};
+        //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
+        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+        send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
         apdu.sendBytes((short) 0, le);
@@ -241,8 +269,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         //return counter + certificate with multiple APDUs
         apdu.setOutgoing();
-        sending = new byte[8 + certificate.length];
+        //sending = new byte[8 + certificate.length]; //Gebruik van new //Volgens mij is dit nu een transientArray omdat die eerder zo gedefinieerd is
         lengthSending = 8 + certificate.length;
+        System.out.println("LengthSending = " + lengthSending);
         byte[] counterArray = ByteBuffer.allocate(8).putInt(counter).array();
         System.arraycopy(counterArray, 0, sending, 0, 8);
         System.arraycopy(certificate, 0, sending, 8, certificate.length);
@@ -279,35 +308,28 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //TODO: Verify the signature
 
         JCSystem.beginTransaction(); // Make Persistent Transaction
-        balance += amount;
-        JCSystem.commitTransaction();
+        balance += amount;  // EP no need for transaction as this is atomic
+        //   maar waarschijnlijk wil je de transatie langer maken??
 
-        apdu.setOutgoing();
 
+        //sequenceNumber += 1;
         counter += 1;
+
 
         byte[] counter = ByteBuffer.allocate(8).putInt(this.counter).array();
         byte[] cardIDBytes = cardID;
         byte[] cardIDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
         byte[] padding = {0};
 
-        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1];
-        System.arraycopy(counter, 0, send, 0, 8);
-        System.arraycopy(cardIDLength, 0, send, 8, 8);
-        System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
-        System.arraycopy(padding, 0, send, 8 + 8 + cardIDBytes.length, 1);
-        apdu.setOutgoingLength((short) send.length);
-        System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) send.length);
-
         //store transaction
         int timestamp = (int)(System.currentTimeMillis() / 1000);
-        byte[] timestampByte = new byte[]{
+        byte[] timestampByte = new byte[]{ //Gebruik van new
                 (byte) (timestamp >> 24),
                 (byte) (timestamp >> 16),
                 (byte) (timestamp >> 8),
                 (byte) timestamp
         };
+        //transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
         transactions[lastTransactionIndex][0] = timestampByte[0];
         transactions[lastTransactionIndex][1] = timestampByte[1];
         transactions[lastTransactionIndex][2] = timestampByte[2];
@@ -317,6 +339,22 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         transactions[lastTransactionIndex][6] = (byte)amount;
         transactions[lastTransactionIndex][7] = (byte)lastTransactionIndex;
         lastTransactionIndex+=1;
+
+        JCSystem.commitTransaction();
+
+        apdu.setOutgoing();
+
+        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; // EP memory leak!!
+        System.arraycopy(counter, 0, send, 0, 8);
+        System.arraycopy(cardIDLength, 0, send, 8, 8);
+        System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
+        System.arraycopy(padding, 0, send, 8 + 8 + cardIDBytes.length, 1);
+        apdu.setOutgoingLength((short) send.length);
+        System.arraycopy(send, 0, buffer, 0, send.length);
+        apdu.sendBytes((short) 0, (short) send.length);
+
+
+
     }
 
     private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
@@ -338,9 +376,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             success[0] = (byte)1;
             balance -= amount;
         }
-        JCSystem.commitTransaction();
 
-        apdu.setOutgoing();
 
         counter += 1;
 
@@ -348,18 +384,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte[] cardIDBytes = cardID;
         byte[] cardIDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
 
-        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1];
-        System.arraycopy(counter, 0, send, 0, 8);
-        System.arraycopy(cardIDLength, 0, send, 8, 8);
-        System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
-        System.arraycopy(success, 0, send, 8 + 8 + cardIDBytes.length, 1);
-        apdu.setOutgoingLength((short) send.length);
-        System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) send.length);
-
         //store transaction
         int timestamp = (int)(System.currentTimeMillis() / 1000);
-        byte[] timestampByte = new byte[]{
+        byte[] timestampByte = new byte[]{ //gebruik van new
                 (byte) (timestamp >> 24),
                 (byte) (timestamp >> 16),
                 (byte) (timestamp >> 8),
@@ -374,6 +401,21 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         transactions[lastTransactionIndex][6] = terminalID[0]; //TODO: Add the correct terminalID
         transactions[lastTransactionIndex][7] = (byte)amount;
         lastTransactionIndex+=1;
+
+        JCSystem.commitTransaction();
+
+        apdu.setOutgoing();
+
+        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; //gebruik van new
+        System.arraycopy(counter, 0, send, 0, 8);
+        System.arraycopy(cardIDLength, 0, send, 8, 8);
+        System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
+        System.arraycopy(success, 0, send, 8 + 8 + cardIDBytes.length, 1);
+        apdu.setOutgoingLength((short) send.length);
+        System.arraycopy(send, 0, buffer, 0, send.length);
+        apdu.sendBytes((short) 0, (short) send.length);
+
+
     }
 
     private void view_balance(APDU apdu, byte[] buffer){
