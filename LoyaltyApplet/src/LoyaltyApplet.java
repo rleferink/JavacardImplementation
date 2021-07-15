@@ -25,6 +25,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     PublicKey publicKeyCA = null;
 
     byte[] transaction = makeTransientByteArray((short)2500, CLEAR_ON_DESELECT);
+    byte[] scratchpad = makeTransientByteArray((short) 30, CLEAR_ON_DESELECT);
 
     //byte[] incoming = null; // EP in RAM FIXED
     //byte[] incoming = makeTransientByteArray((short)2500, CLEAR_ON_RESET);
@@ -136,7 +137,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             short le = apdu.setOutgoing();
             apdu.setOutgoingLength(le);
             //byte[] send_answer = {(byte)0}; // EP memory leak !! FIXED
-            byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
+            byte[] send_answer = scratchpad;
             send_answer[0] = 0;
             System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
             apdu.sendBytes((short) 0, le);
@@ -152,7 +153,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //Return with 1
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
-        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
+        byte[] send_answer = scratchpad;
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -171,7 +172,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //Return with 1
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
-        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
+        byte[] send_answer = scratchpad;
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -220,7 +221,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //Return byte 1
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
-        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
+        byte[] send_answer = scratchpad;
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -320,7 +321,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.setOutgoing();
 
         //byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; // EP memory leak!!
-        byte[] send = makeTransientByteArray((short)25, CLEAR_ON_DESELECT);
+        byte[] send = scratchpad;
         System.arraycopy(counter, 0, send, 0, 8);
         System.arraycopy(cardIDLength, 0, send, 8, 8);
         System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
@@ -373,7 +374,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.setOutgoing();
 
         //byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; //gebruik van new
-        byte[] send = makeTransientByteArray((short)25, CLEAR_ON_DESELECT);
+        byte[] send = scratchpad;
         //System.out.println("CardIDBytes.length" + cardIDBytes.length); //5
         //System.out.println("Counter.length" + counter.length); //8
         System.arraycopy(counter, 0, send, 0, 8);
