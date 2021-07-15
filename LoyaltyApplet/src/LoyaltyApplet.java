@@ -1,52 +1,38 @@
 import javacard.framework.*;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.smartcardio.CardException;
-import javax.sound.midi.SysexMessage;
-
-import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.EncodedKeySpec;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.sql.Timestamp;
 import java.util.Arrays;
-import javax.crypto.Cipher;
-
-import javacard.framework.JCSystem;
-
 import static javacard.framework.JCSystem.*;
 
 public class LoyaltyApplet extends Applet implements ISO7816 {
     private AppUtil.AppMode currentMode;
 
     private short balance = 0; // Initial card balance
-    int sequenceNumber = 0; // Total amount of transactions
 
     boolean personalized = false;
 
     byte[] cardID = null;    // EP in persistent aka EEPROM ?? FIXED
     //byte[] terminalID = null; // EP in transient aka RAM?? FIXED
-    byte[] terminalID = makeTransientByteArray((short) 4, CLEAR_ON_RESET);
+    byte[] terminalID = makeTransientByteArray((short) 4, CLEAR_ON_DESELECT);
     //byte[] certificate = null; // EP persistent ?? FIXED
-    byte[] certificate = makeTransientByteArray((short) 610, CLEAR_ON_RESET);
+    byte[] certificate = null;
     PublicKey publicKey = null;
     PrivateKey privateKey = null;
     PublicKey publicKeyCA = null;
 
+    byte[] transaction = makeTransientByteArray((short)2500, CLEAR_ON_DESELECT);
+
     //byte[] incoming = null; // EP in RAM FIXED
-    byte[] incoming = makeTransientByteArray((short)2500, CLEAR_ON_RESET);
+    //byte[] incoming = makeTransientByteArray((short)2500, CLEAR_ON_RESET);
     int incomingIndex = 0; // EP Better as transient local variables instead of persistent fields?? Persistent is better I think
     int lengthIncoming = 0; // EP Better as transient local variables instead of persistent fields?? Persistent is better I think
 
     //byte[] sending = null; //Also TransientByteArray? FIXED
-    byte[] sending = makeTransientByteArray((short)650, CLEAR_ON_RESET);
+    //byte[] sending = makeTransientByteArray((short)650, CLEAR_ON_RESET);
     int sendingIndex = 0;  // EP Better as transient local variables instead of persistent fields??
     //    Eg use a local variable inside a method instead and pass it
     //    around as parameter (on the stack) instead of having it
@@ -56,8 +42,9 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     int counter = 1;
 
     //card keeps track of the most recent 100 transactions
+    int sequenceNumber = 0; // Total amount of transactions
     int lastTransactionIndex = 0;
-    Byte [][] transactions = new Byte[100][8];
+    Byte [][] transactions = new Byte[100][4];
 
     public LoyaltyApplet() {
         register();
@@ -149,7 +136,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             short le = apdu.setOutgoing();
             apdu.setOutgoingLength(le);
             //byte[] send_answer = {(byte)0}; // EP memory leak !! FIXED
-            byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+            byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
             send_answer[0] = 0;
             System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
             apdu.sendBytes((short) 0, le);
@@ -158,14 +145,14 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         //Retrieve the length of the incoming message and creating a new byte[] for that message
         lengthIncoming = ByteBuffer.wrap(Arrays.copyOfRange(buffer, 5, 5+ 8)).getInt();
-        incoming = makeTransientByteArray((short)lengthIncoming, CLEAR_ON_DESELECT);
+        //incoming = makeTransientByteArray((short)lengthIncoming, CLEAR_ON_DESELECT);
         //incoming = new byte[lengthIncoming]; //incoming = makeTransient((short) lengthIncoming, ...);  //EP memory leak  && persistent ipv transient !! FIXED
         incomingIndex = 0;
 
         //Return with 1
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
-        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -175,16 +162,16 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
     private void receiveInfo(APDU apdu, byte[] buffer){
         //Copy the incoming buffer into the previously made byte[] at the right position of incomingIndex
         if(lengthIncoming - incomingIndex >= 250){
-            System.arraycopy(buffer, 5, incoming, incomingIndex, 250);
+            System.arraycopy(buffer, 5, transaction, incomingIndex, 250);
         } else {
-            System.arraycopy(buffer, 5, incoming, incomingIndex, lengthIncoming - incomingIndex);
+            System.arraycopy(buffer, 5, transaction, incomingIndex, lengthIncoming - incomingIndex);
         }
         incomingIndex += 250;
 
         //Return with 1
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
-        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -202,18 +189,17 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //Incoming is already a transientByteArray
 
         //Get information out of incoming
-        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
-        byte[] cardIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength); // EP does this allocate memory??
-        cardID = cardIDBytes;
-        int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength, 8 + IDLength + 8)).getInt();
-        byte[] certificateBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
-        certificate = certificateBytes;
-        int pubKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength, 8 + IDLength + 8 + certLength + 8)).getInt();
-        byte[] pubKeyBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength);
-        int privKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8)).getInt();
-        byte[] privKeyBytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength);
-        int pubCALength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8)).getInt();
-        byte[] pubCABytes = Arrays.copyOfRange(incoming, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8 + pubCALength);
+        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 0, 8)).getInt();
+        cardID = Arrays.copyOfRange(transaction, 8, 8 + IDLength); // EP does this allocate memory??
+        int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + IDLength, 8 + IDLength + 8)).getInt();
+        certificate = Arrays.copyOfRange(transaction, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
+
+        int pubKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + IDLength + 8 + certLength, 8 + IDLength + 8 + certLength + 8)).getInt();
+        byte[] pubKeyBytes = Arrays.copyOfRange(transaction, 8 + IDLength + 8 + certLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength);
+        int privKeyLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + IDLength + 8 + certLength + 8 + pubKeyLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8)).getInt();
+        byte[] privKeyBytes = Arrays.copyOfRange(transaction, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength);
+        int pubCALength = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8)).getInt();
+        byte[] pubCABytes = Arrays.copyOfRange(transaction, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8, 8 + IDLength + 8 + certLength + 8 + pubKeyLength + 8 + privKeyLength + 8 + pubCALength);
 
         //Use a KeyFactory to regenerate the keys from the byte arrays
         try {
@@ -234,7 +220,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //Return byte 1
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
-        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_RESET);
+        byte[] send_answer = makeTransientByteArray((short)1,CLEAR_ON_DESELECT);
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -243,11 +229,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
     private void sendCertificateAndCounter(APDU apdu) {
         //Get information out of incoming
-        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
-        byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8, 8 + IDLength);
+        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 0, 8)).getInt();
+        byte[] terminalIDBytes = Arrays.copyOfRange(transaction, 8, 8 + IDLength);
         terminalID = terminalIDBytes;
-        int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + IDLength, 8 + IDLength + 8)).getInt();
-        byte[] certificateBytesTerminal = Arrays.copyOfRange(incoming, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
+        int certLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + IDLength, 8 + IDLength + 8)).getInt();
+        byte[] certificateBytesTerminal = Arrays.copyOfRange(transaction, 8 + IDLength + 8, 8 + IDLength + 8 + certLength);
 
         //Make a certificate object from the byte array and extract data
         Certificate certificateTerminalCheck = new Certificate(certificateBytesTerminal);
@@ -271,13 +257,13 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.setOutgoing();
         //sending = new byte[8 + certificate.length]; //Gebruik van new //Volgens mij is dit nu een transientArray omdat die eerder zo gedefinieerd is
         lengthSending = 8 + certificate.length;
-        System.out.println("LengthSending = " + lengthSending);
+        //System.out.println("LengthSending = " + lengthSending);
         byte[] counterArray = ByteBuffer.allocate(8).putInt(counter).array();
-        System.arraycopy(counterArray, 0, sending, 0, 8);
-        System.arraycopy(certificate, 0, sending, 8, certificate.length);
+        System.arraycopy(counterArray, 0, transaction, 0, 8);
+        System.arraycopy(certificate, 0, transaction, 8, certificate.length);
 
         apdu.setOutgoingLength((short) 250);
-        apdu.sendBytesLong(sending, (short) sendingIndex, (short) 250);
+        apdu.sendBytesLong(transaction, (short) sendingIndex, (short) 250);
         sendingIndex += 250;
         ISOException.throwIt((short) 0x6100);
     }
@@ -286,24 +272,24 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.setOutgoing();
         if((lengthSending - sendingIndex) > 250){
             apdu.setOutgoingLength((short) 250);
-            apdu.sendBytesLong(sending, (short) sendingIndex, (short) 250);
+            apdu.sendBytesLong(transaction, (short) sendingIndex, (short) 250);
             sendingIndex += 250;
             ISOException.throwIt((short) 0x6100);
         }
         apdu.setOutgoingLength((short) (lengthSending - sendingIndex));
-        apdu.sendBytesLong(sending, (short) sendingIndex, (short) (lengthSending - sendingIndex));
+        apdu.sendBytesLong(transaction, (short) sendingIndex, (short) (lengthSending - sendingIndex));
         ISOException.throwIt((short) 0x9000);
     }
 
     private void IncreaseBalance(APDU apdu, byte[] buffer){
         //Get information out of incoming buffer
-        counter = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
-        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8, 8 + 8)).getInt();
-        byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8 + 8, 8 + 8 + IDLength);
+        counter = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 0, 8)).getInt();
+        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8, 8 + 8)).getInt();
+        byte[] terminalIDBytes = Arrays.copyOfRange(transaction, 8 + 8, 8 + 8 + IDLength);
         terminalID = terminalIDBytes;
-        int amount = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength, 8 + 8 + IDLength + 8)).getInt();
-        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
-        byte[] signature = Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
+        int amount = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + 8 + IDLength, 8 + 8 + IDLength + 8)).getInt();
+        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
+        byte[] signature = Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
 
         //TODO: Verify the signature
 
@@ -312,7 +298,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         //   maar waarschijnlijk wil je de transatie langer maken??
 
 
-        //sequenceNumber += 1;
+        sequenceNumber += 1;
         counter += 1;
 
 
@@ -322,29 +308,19 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte[] padding = {0};
 
         //store transaction
-        int timestamp = (int)(System.currentTimeMillis() / 1000);
-        byte[] timestampByte = new byte[]{ //Gebruik van new
-                (byte) (timestamp >> 24),
-                (byte) (timestamp >> 16),
-                (byte) (timestamp >> 8),
-                (byte) timestamp
-        };
-        //transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
-        transactions[lastTransactionIndex][0] = timestampByte[0];
-        transactions[lastTransactionIndex][1] = timestampByte[1];
-        transactions[lastTransactionIndex][2] = timestampByte[2];
-        transactions[lastTransactionIndex][3] = timestampByte[3];
-        transactions[lastTransactionIndex][4] = cardID[0];
-        transactions[lastTransactionIndex][5] = terminalID[0];
-        transactions[lastTransactionIndex][6] = (byte)amount;
-        transactions[lastTransactionIndex][7] = (byte)lastTransactionIndex;
-        lastTransactionIndex+=1;
+        transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
+        transactions[lastTransactionIndex][1] = cardID[0];
+        transactions[lastTransactionIndex][2] = terminalID[0];
+        transactions[lastTransactionIndex][3] = (byte)amount;
+
+        lastTransactionIndex = (lastTransactionIndex + 1) % 100;
 
         JCSystem.commitTransaction();
 
         apdu.setOutgoing();
 
-        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; // EP memory leak!!
+        //byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; // EP memory leak!!
+        byte[] send = makeTransientByteArray((short)25, CLEAR_ON_DESELECT);
         System.arraycopy(counter, 0, send, 0, 8);
         System.arraycopy(cardIDLength, 0, send, 8, 8);
         System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
@@ -359,13 +335,13 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
     private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
         //Get information out of incoming buffer
-        counter = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 0, 8)).getInt();
-        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8, 8 + 8)).getInt();
-        byte[] terminalIDBytes = Arrays.copyOfRange(incoming, 8 + 8, 8 + 8 + IDLength);
+        counter = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 0, 8)).getInt();
+        int IDLength = ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8, 8 + 8)).getInt();
+        byte[] terminalIDBytes = Arrays.copyOfRange(transaction, 8 + 8, 8 + 8 + IDLength);
         terminalID = terminalIDBytes;
-        int amount =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength, 8 + 8 + IDLength + 8)).getInt();
-        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
-        byte[] signature = Arrays.copyOfRange(incoming, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
+        int amount =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + 8 + IDLength, 8 + 8 + IDLength + 8)).getInt();
+        int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
+        byte[] signature = Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
 
         //TODO: Verify the signature
 
@@ -377,7 +353,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             balance -= amount;
         }
 
-
+        sequenceNumber += 1;
         counter += 1;
 
         byte[] counter = ByteBuffer.allocate(8).putInt(this.counter).array();
@@ -385,28 +361,21 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte[] cardIDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
 
         //store transaction
-        int timestamp = (int)(System.currentTimeMillis() / 1000);
-        byte[] timestampByte = new byte[]{ //gebruik van new
-                (byte) (timestamp >> 24),
-                (byte) (timestamp >> 16),
-                (byte) (timestamp >> 8),
-                (byte) timestamp
-        };
-        transactions[lastTransactionIndex][0] = timestampByte[0];
-        transactions[lastTransactionIndex][1] = timestampByte[1];
-        transactions[lastTransactionIndex][2] = timestampByte[2];
-        transactions[lastTransactionIndex][3] = timestampByte[3];
-        transactions[lastTransactionIndex][4] = (byte)0;
-        transactions[lastTransactionIndex][5] = cardID[0]; //TODO: Add the correct cardID
-        transactions[lastTransactionIndex][6] = terminalID[0]; //TODO: Add the correct terminalID
-        transactions[lastTransactionIndex][7] = (byte)amount;
-        lastTransactionIndex+=1;
+
+        transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
+        transactions[lastTransactionIndex][1] = cardID[0];
+        transactions[lastTransactionIndex][2] = terminalID[0];
+        transactions[lastTransactionIndex][3] = (byte)amount;
+        lastTransactionIndex = (lastTransactionIndex + 1) % 100;
 
         JCSystem.commitTransaction();
 
         apdu.setOutgoing();
 
-        byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; //gebruik van new
+        //byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; //gebruik van new
+        byte[] send = makeTransientByteArray((short)25, CLEAR_ON_DESELECT);
+        //System.out.println("CardIDBytes.length" + cardIDBytes.length); //5
+        //System.out.println("Counter.length" + counter.length); //8
         System.arraycopy(counter, 0, send, 0, 8);
         System.arraycopy(cardIDLength, 0, send, 8, 8);
         System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
