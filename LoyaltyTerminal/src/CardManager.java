@@ -3,7 +3,6 @@ import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import javacard.framework.AID;
 
 import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.*;
@@ -13,12 +12,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
 
 public class CardManager extends JPanel implements ActionListener {
     public static CardChannel applet;
@@ -126,7 +120,6 @@ public class CardManager extends JPanel implements ActionListener {
                 if (c=="Personalize"){
                     // Insert Card into "Personalization Terminal
                     if (active){
-                        //card.disconnect(false);
                         posTerminal.setEnabled(false, card);
                     }
                     active = false;
@@ -137,7 +130,6 @@ public class CardManager extends JPanel implements ActionListener {
                 else if (c=="POS Terminal"){
                     // Insert Card into "POS terminal"
                     if (!active){
-                        //card.disconnect(false);
                         personalizationTerminal.setEnabled(false, card);
                     }
                     active = true;

@@ -20,8 +20,6 @@ import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import javax.swing.*;
 import com.licel.jcardsim.smartcardio.CardSimulator;
-
-import java.math.BigInteger;
 /**
  * POS terminal for the Loyalty Applet.
  **
@@ -61,8 +59,9 @@ public class PosTerminal extends JPanel implements ActionListener {
 
     //create an array consisting of timestamp, card number, terminalID, amount of points.
     //terminal keeps track of the most recent 100 transactions
-    int lastTransactionIndex = 0;
-    Byte [][] transactions = new Byte[100][8];
+    int sequenceNumber = 0; // Total amount of transactions
+    int lastTransactionIndex = 0; // Card keeps track of the most recent 100 transactions
+    Byte [][] transactions = new Byte[100][4];
 
     private short enteredValue = 0;
 
@@ -361,24 +360,12 @@ public class PosTerminal extends JPanel implements ActionListener {
         }
 
         //store transaction
-        int timestamp = (int)(System.currentTimeMillis() / 1000);
-        byte[] timestampByte = new byte[]{
-                (byte) (timestamp >> 24),
-                (byte) (timestamp >> 16),
-                (byte) (timestamp >> 8),
-                (byte) timestamp
-        };
+        transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
+        transactions[lastTransactionIndex][1] = cardIDBytes[0];
+        transactions[lastTransactionIndex][2] = terminalIDBytes[0];
+        transactions[lastTransactionIndex][3] = (byte)amount;
 
-        //transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
-        transactions[lastTransactionIndex][0] = timestampByte[0];
-        transactions[lastTransactionIndex][1] = timestampByte[1];
-        transactions[lastTransactionIndex][2] = timestampByte[2];
-        transactions[lastTransactionIndex][3] = timestampByte[3];
-        transactions[lastTransactionIndex][4] = cardIDBytes[0];
-        transactions[lastTransactionIndex][5] = terminalIDBytes[0];
-        transactions[lastTransactionIndex][6] = (byte)amount;
-        transactions[lastTransactionIndex][7] = (byte)lastTransactionIndex;
-        lastTransactionIndex+=1;
+        lastTransactionIndex = (lastTransactionIndex + 1) % 100;
 
         return;
     }
