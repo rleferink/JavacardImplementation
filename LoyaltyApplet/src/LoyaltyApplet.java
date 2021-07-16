@@ -138,6 +138,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
             apdu.setOutgoingLength(le);
             //byte[] send_answer = {(byte)0}; // EP memory leak !! FIXED
             byte[] send_answer = scratchpad;
+            //TODO scratchpad gets info of send_answer
             send_answer[0] = 0;
             System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
             apdu.sendBytes((short) 0, le);
@@ -154,6 +155,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
         byte[] send_answer = scratchpad;
+        //TODO scratchpad gets info of send_answer
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -173,6 +175,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
         byte[] send_answer = scratchpad;
+        //TODO scratchpad gets info of send_answer
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -222,6 +225,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         short le = apdu.setOutgoing();
         //byte[] send_answer = {(byte)1}; // EP memory leak !! FIXED
         byte[] send_answer = scratchpad;
+        //TODO scratchpad gets info of send_answer
         send_answer[0] = 1;
         apdu.setOutgoingLength(le);
         System.arraycopy(send_answer, 0, buffer, 0, send_answer.length);
@@ -320,18 +324,14 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         apdu.setOutgoing();
 
-        //byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; // EP memory leak!!
-        byte[] send = scratchpad;
-        System.arraycopy(counter, 0, send, 0, 8);
-        System.arraycopy(cardIDLength, 0, send, 8, 8);
-        System.arraycopy(cardIDBytes, 0, send, 8 + 8, cardIDBytes.length);
-        System.arraycopy(padding, 0, send, 8 + 8 + cardIDBytes.length, 1);
-        apdu.setOutgoingLength((short) send.length);
-        System.arraycopy(send, 0, buffer, 0, send.length);
-        apdu.sendBytes((short) 0, (short) send.length);
-
-
-
+        int lengthOfSend = counter.length + 8 + cardIDBytes.length + 1;
+        System.arraycopy(counter, 0, scratchpad, 0, 8);
+        System.arraycopy(cardIDLength, 0, scratchpad, 8, 8);
+        System.arraycopy(cardIDBytes, 0, scratchpad, 8 + 8, cardIDBytes.length);
+        System.arraycopy(padding, 0, scratchpad, 8 + 8 + cardIDBytes.length, 1);
+        apdu.setOutgoingLength((short) lengthOfSend);
+        System.arraycopy(scratchpad, 0, buffer, 0, lengthOfSend);
+        apdu.sendBytes((short) 0, (short) lengthOfSend);
     }
 
     private void checkAmountAndDecreaseBalance(APDU apdu, byte[] buffer){
@@ -375,6 +375,7 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
 
         //byte[] send = new byte[counter.length + 8 + cardIDBytes.length + 1]; //gebruik van new
         byte[] send = scratchpad;
+        //TODO info of send in scratchpad
         //System.out.println("CardIDBytes.length" + cardIDBytes.length); //5
         //System.out.println("Counter.length" + counter.length); //8
         System.arraycopy(counter, 0, send, 0, 8);
