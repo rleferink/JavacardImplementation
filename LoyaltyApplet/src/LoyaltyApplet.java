@@ -261,15 +261,11 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
         byte[] signature = Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
 
-        //TODO: Verify the signature
-
         JCSystem.beginTransaction(); // Make Persistent Transaction
         balance += amount;
 
-
         sequenceNumber += 1;
         counter += 1;
-
 
         byte[] counter = ByteBuffer.allocate(8).putInt(this.counter).array();
         byte[] cardIDBytes = cardID;
@@ -308,8 +304,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         int signatureLength =  ByteBuffer.wrap(Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8, 8 + 8 + IDLength + 8 + 8)).getInt();
         byte[] signature = Arrays.copyOfRange(transaction, 8 + 8 + IDLength + 8 + 8, 8 + 8 + IDLength + 8 + 8 + signatureLength);
 
-        //TODO: Verify the signature
-
         byte[] success = {(byte)0};
 
         JCSystem.beginTransaction();
@@ -326,7 +320,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         byte[] cardIDLength = ByteBuffer.allocate(8).putInt(cardIDBytes.length).array();
 
         //store transaction
-
         transactions[lastTransactionIndex][0] = (byte)sequenceNumber;
         transactions[lastTransactionIndex][1] = cardID[0];
         transactions[lastTransactionIndex][2] = terminalID[0];
@@ -345,8 +338,6 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         apdu.setOutgoingLength((short) lengthOfSend);
         System.arraycopy(scratchpad, 0, buffer, 0, lengthOfSend);
         apdu.sendBytes((short) 0, (short) lengthOfSend);
-
-
     }
 
     private void view_balance(APDU apdu, byte[] buffer){
@@ -356,5 +347,4 @@ public class LoyaltyApplet extends Applet implements ISO7816 {
         System.arraycopy(send_balance, 0, buffer, 0, send_balance.length);
         apdu.sendBytes((short) 0, le);
     }
-
 }
